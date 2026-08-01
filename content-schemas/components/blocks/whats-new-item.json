@@ -1,0 +1,27 @@
+{
+  "collectionName": "components_blocks_whats_new_items",
+  "info": {
+    "displayName": "Whats New Item",
+    "icon": "star",
+    "description": "A single carousel slide in the What's New section"
+  },
+  "options": {},
+  "attributes": {
+    "image": {
+      "type": "media",
+      "multiple": false,
+      "required": true,
+      "allowedTypes": ["images"]
+    },
+    "title": {
+      "type": "string"
+    },
+    "targetUrl": {
+      "type": "string"
+    },
+    "ctaLabel": {
+      "type": "string",
+      "default": "Learn More"
+    }
+  }
+}

@@ -1,0 +1,18 @@
+{
+  "collectionName": "components_blocks_hero_grids",
+  "info": {
+    "displayName": "Hero Grid",
+    "icon": "th",
+    "description": "2-column grid of quick-stat cards. Add items in the order you want them to appear."
+  },
+  "options": {},
+  "attributes": {
+    "items": {
+      "type": "component",
+      "repeatable": true,
+      "component": "blocks.hero-grid-item",
+      "required": true,
+      "min": 1
+    }
+  }
+}

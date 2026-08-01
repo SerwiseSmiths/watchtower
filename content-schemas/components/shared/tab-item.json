@@ -1,0 +1,42 @@
+{
+  "collectionName": "components_shared_tab_items",
+  "info": {
+    "displayName": "Tab Item",
+    "icon": "bars",
+    "description": "A single bottom navigation tab. key must match a screen name in the app: home | circles | wallet | settings"
+  },
+  "options": {},
+  "attributes": {
+    "key": {
+      "type": "string",
+      "required": true
+    },
+    "label": {
+      "type": "string",
+      "required": true
+    },
+    "redirectUrl": {
+      "type": "string",
+      "required": false,
+      "description": "Optional redirection URL or path for this bottom tab"
+    },
+    "inactiveIcon": {
+      "type": "media",
+      "multiple": false,
+      "required": false,
+      "allowedTypes": ["images", "files"]
+    },
+    "activeIcon": {
+      "type": "media",
+      "multiple": false,
+      "required": false,
+      "allowedTypes": ["images", "files"]
+    },
+    "activeBgColor": {
+      "type": "string"
+    },
+    "inactiveBgColor": {
+      "type": "string"
+    }
+  }
+}

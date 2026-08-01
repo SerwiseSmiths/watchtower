@@ -1,0 +1,53 @@
+{
+  "kind": "collectionType",
+  "collectionName": "device_types",
+  "info": {
+    "singularName": "device-type",
+    "pluralName": "device-types",
+    "displayName": "Device Type"
+  },
+  "options": {
+    "draftAndPublish": false
+  },
+  "pluginOptions": {},
+  "attributes": {
+    "key": {
+      "type": "string",
+      "required": true,
+      "unique": true
+    },
+    "label": {
+      "type": "string",
+      "required": true
+    },
+    "icon": {
+      "type": "media",
+      "multiple": false,
+      "required": false,
+      "allowedTypes": ["images"]
+    },
+    "buttonImage": {
+      "type": "media",
+      "multiple": false,
+      "required": false,
+      "allowedTypes": ["images"],
+      "pluginOptions": {
+        "i18n": {
+          "localized": false
+        }
+      }
+    },
+    "service_parts": {
+      "type": "relation",
+      "relation": "manyToMany",
+      "target": "api::service-part.service-part",
+      "mappedBy": "device_types"
+    },
+    "subscription_addons": {
+      "type": "relation",
+      "relation": "manyToMany",
+      "target": "api::subscription-addon.subscription-addon",
+      "mappedBy": "device_types"
+    }
+  }
+}

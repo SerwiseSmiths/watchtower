@@ -1,0 +1,30 @@
+{
+  "collectionName": "components_complaint_resolution_steps",
+  "info": {
+    "displayName": "Resolution Step",
+    "icon": "check-circle",
+    "description": "A single step in the 'How Your Issue Will be Resolved' section of the complaint detail screen"
+  },
+  "options": {},
+  "attributes": {
+    "stageKey": {
+      "type": "enumeration",
+      "enum": ["assigning", "entrance", "estimating", "approval", "payment", "completed"],
+      "required": true
+    },
+    "title": {
+      "type": "string",
+      "required": true
+    },
+    "description": {
+      "type": "string",
+      "required": true
+    },
+    "image": {
+      "type": "media",
+      "multiple": false,
+      "required": false,
+      "allowedTypes": ["images"]
+    }
+  }
+}

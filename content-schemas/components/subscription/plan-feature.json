@@ -1,0 +1,21 @@
+{
+  "collectionName": "components_subscription_plan_features",
+  "info": {
+    "displayName": "Plan Feature",
+    "icon": "check",
+    "description": "A feature or benefit included in a subscription plan (shown in What's Included)"
+  },
+  "options": {},
+  "attributes": {
+    "title": {
+      "type": "string",
+      "required": true
+    },
+    "description": {
+      "type": "text"
+    },
+    "qty": {
+      "type": "string"
+    }
+  }
+}

@@ -1,0 +1,36 @@
+{
+  "collectionName": "components_blocks_advertisements",
+  "info": {
+    "displayName": "Advertisement",
+    "icon": "picture",
+    "description": "Ad slot — toggle between AdMob and a custom fallback ad"
+  },
+  "options": {},
+  "attributes": {
+    "enableAdMob": {
+      "type": "boolean",
+      "default": false,
+      "required": true
+    },
+    "adMobAdUnitId": {
+      "type": "string"
+    },
+    "adMobAdSize": {
+      "type": "enumeration",
+      "enum": ["BANNER", "LARGE_BANNER", "MEDIUM_RECTANGLE", "ADAPTIVE_BANNER"],
+      "default": "BANNER"
+    },
+    "fallbackImage": {
+      "type": "media",
+      "multiple": false,
+      "required": false,
+      "allowedTypes": ["images"]
+    },
+    "fallbackTargetUrl": {
+      "type": "string"
+    },
+    "fallbackImpressionUrl": {
+      "type": "string"
+    }
+  }
+}

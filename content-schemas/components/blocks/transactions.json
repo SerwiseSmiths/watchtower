@@ -1,0 +1,26 @@
+{
+  "collectionName": "components_blocks_transactions",
+  "info": {
+    "displayName": "Transactions",
+    "icon": "layer",
+    "description": "Transaction list block for wallet modal"
+  },
+  "options": {},
+  "attributes": {
+    "heading": {
+      "type": "string",
+      "required": true,
+      "default": "Transactions"
+    },
+    "viewAllLabel": {
+      "type": "string",
+      "default": "View All"
+    },
+    "limit": {
+      "type": "integer",
+      "default": 10,
+      "min": 1,
+      "max": 50
+    }
+  }
+}

@@ -1,0 +1,32 @@
+{
+  "kind": "singleType",
+  "collectionName": "welcome_bonus",
+  "info": {
+    "singularName": "welcome-bonus",
+    "pluralName": "welcome-bonuses",
+    "displayName": "Welcome Bonus",
+    "description": "Controls the one-time wallet credit and celebration image shown to new users on first sign-up"
+  },
+  "options": {
+    "draftAndPublish": false
+  },
+  "pluginOptions": {},
+  "attributes": {
+    "image": {
+      "type": "media",
+      "multiple": false,
+      "required": false,
+      "allowedTypes": ["images"]
+    },
+    "amount": {
+      "type": "integer",
+      "required": true,
+      "default": 0,
+      "min": 0
+    },
+    "isEnabled": {
+      "type": "boolean",
+      "default": false
+    }
+  }
+}

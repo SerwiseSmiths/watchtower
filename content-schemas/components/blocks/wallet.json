@@ -1,0 +1,21 @@
+{
+  "collectionName": "components_blocks_wallets",
+  "info": {
+    "displayName": "Wallet",
+    "icon": "money-bill",
+    "description": "Wallet section — only text labels are configured here; balance is real-time from the API"
+  },
+  "options": {},
+  "attributes": {
+    "heading": {
+      "type": "string",
+      "default": "My Wallet",
+      "required": true
+    },
+    "ctaLabel": {
+      "type": "string",
+      "default": "+ Add",
+      "required": true
+    }
+  }
+}

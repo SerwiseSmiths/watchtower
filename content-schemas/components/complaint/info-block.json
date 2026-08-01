@@ -1,0 +1,19 @@
+{
+  "collectionName": "components_complaint_info_blocks",
+  "info": {
+    "displayName": "Info Block",
+    "icon": "information",
+    "description": "An expandable info block shown at the bottom of the complaint detail screen (e.g. Refundable, Safety Measurements, Warranty)"
+  },
+  "options": {},
+  "attributes": {
+    "title": {
+      "type": "string",
+      "required": true
+    },
+    "body": {
+      "type": "text",
+      "required": true
+    }
+  }
+}

@@ -1,0 +1,23 @@
+{
+  "collectionName": "components_blocks_services",
+  "info": {
+    "displayName": "Services",
+    "icon": "tools",
+    "description": "Services section. Add rows and assign device types to each row to control layout and order."
+  },
+  "options": {},
+  "attributes": {
+    "heading": {
+      "type": "string",
+      "default": "Services",
+      "required": true
+    },
+    "rows": {
+      "type": "component",
+      "repeatable": true,
+      "component": "blocks.service-row",
+      "required": true,
+      "min": 1
+    }
+  }
+}

@@ -1,0 +1,52 @@
+{
+  "kind": "collectionType",
+  "collectionName": "subscription_addons",
+  "info": {
+    "singularName": "subscription-addon",
+    "pluralName": "subscription-addons",
+    "displayName": "Subscription Addon"
+  },
+  "options": {
+    "draftAndPublish": true
+  },
+  "pluginOptions": {},
+  "attributes": {
+    "key": {
+      "type": "string",
+      "required": true,
+      "unique": true
+    },
+    "name": {
+      "type": "string",
+      "required": true
+    },
+    "price": {
+      "type": "decimal",
+      "required": true,
+      "min": 0
+    },
+    "description": {
+      "type": "text"
+    },
+    "image": {
+      "type": "media",
+      "multiple": false,
+      "required": false,
+      "allowedTypes": ["images"]
+    },
+    "is_active": {
+      "type": "boolean",
+      "default": true
+    },
+    "sort_order": {
+      "type": "integer",
+      "default": 0
+    },
+    "device_types": {
+      "type": "relation",
+      "relation": "manyToMany",
+      "target": "api::device-type.device-type",
+      "inversedBy": "subscription_addons"
+    }
+  }
+}
