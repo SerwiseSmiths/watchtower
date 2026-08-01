@@ -1,12 +1,17 @@
+import { randomBytes } from 'crypto';
 import { prisma } from './prisma';
 import { cmpsTableName, getComponent, getContentType, getRelationTable, toColumnName } from '../content-schema/registry';
-import type { ComponentSchema, ContentTypeSchema, FieldSchema } from '../content-schema/types';
+import type { ContentTypeSchema, FieldSchema } from '../content-schema/types';
 
 type Row = Record<string, unknown>;
 type PrismaModel = {
   findMany: (args?: unknown) => Promise<Row[]>;
   findUnique: (args?: unknown) => Promise<Row | null>;
   count: (args?: unknown) => Promise<number>;
+  create: (args: { data: Row }) => Promise<Row>;
+  update: (args: { where: { id: number }; data: Row }) => Promise<Row>;
+  delete: (args: { where: { id: number } }) => Promise<Row>;
+  deleteMany: (args: { where: Row }) => Promise<{ count: number }>;
 };
 
 const prismaAny = prisma as unknown as Record<string, PrismaModel>;
@@ -73,7 +78,13 @@ async function hydrateDynamicZone(ownerCollectionName: string, ownerId: number, 
 }
 
 function shallowScalars(row: Row, attributes: Record<string, FieldSchema>): Row {
-  const result: Row = { id: row.id, document_id: row.document_id };
+  const result: Row = {
+    id: row.id,
+    documentId: row.document_id,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+    publishedAt: row.published_at,
+  };
   for (const [name, field] of Object.entries(attributes)) {
     if (field.kind === 'scalar') result[name] = row[toColumnName(name)];
   }
@@ -107,7 +118,13 @@ export async function hydrateAttributes(
   row: Row,
   attributes: Record<string, FieldSchema>,
 ): Promise<Row> {
-  const hydrated: Row = { id: row.id, document_id: row.document_id };
+  const hydrated: Row = {
+    id: row.id,
+    documentId: row.document_id,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+    publishedAt: row.published_at,
+  };
   for (const [name, field] of Object.entries(attributes)) {
     switch (field.kind) {
       case 'scalar':
@@ -184,4 +201,268 @@ export async function findSingleType(contentTypeUid: string, options: { status?:
   const row = rows[0];
   if (!row) return null;
   return hydrateAttributes(schema.uid, schema.collectionName, row, schema.attributes);
+}
+
+// ---------------------------------------------------------------------------
+// Write path
+// ---------------------------------------------------------------------------
+
+const DOCUMENT_ID_ALPHABET = '0123456789abcdefghijklmnopqrstuvwxyz';
+
+function generateDocumentId(length = 24): string {
+  const bytes = randomBytes(length);
+  let out = '';
+  for (let i = 0; i < length; i++) out += DOCUMENT_ID_ALPHABET[bytes[i] % DOCUMENT_ID_ALPHABET.length];
+  return out;
+}
+
+function slugify(value: string): string {
+  return value
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/(^-|-$)/g, '');
+}
+
+/** Builds the {column: value} object for the main table's own create/update call — scalar fields only. */
+function buildScalarData(attributes: Record<string, FieldSchema>, data: Row): Row {
+  const result: Row = {};
+  for (const [name, field] of Object.entries(attributes)) {
+    if (field.kind !== 'scalar') continue;
+    if (Object.prototype.hasOwnProperty.call(data, name)) {
+      result[toColumnName(name)] = data[name];
+    } else if (field.type === 'uid' && field.targetField && data[field.targetField] != null) {
+      result[toColumnName(name)] = slugify(String(data[field.targetField]));
+    } else if (!Object.prototype.hasOwnProperty.call(data, name) && field.default !== undefined) {
+      result[toColumnName(name)] = field.default;
+    }
+  }
+  return result;
+}
+
+function toIdArray(value: unknown): number[] {
+  if (value == null) return [];
+  const arr = Array.isArray(value) ? value : [value];
+  return arr
+    .map((v) => (typeof v === 'object' && v !== null ? (v as Row).id : v))
+    .filter((v): v is number => typeof v === 'number');
+}
+
+async function writeMedia(ownerUid: string, ownerId: number, fieldName: string, value: unknown) {
+  await model('files_related_mph').deleteMany({ where: { related_id: ownerId, related_type: ownerUid, field: fieldName } });
+  const fileIds = toIdArray(value);
+  for (let i = 0; i < fileIds.length; i++) {
+    await model('files_related_mph').create({
+      data: { file_id: fileIds[i], related_id: ownerId, related_type: ownerUid, field: fieldName, order: i + 1 },
+    });
+  }
+}
+
+/** Deletes a component row and everything it owns (nested components, its own media links) — recursively. */
+async function deleteComponentRow(componentUid: string, componentRow: Row) {
+  const component = getComponent(componentUid);
+  const componentId = componentRow.id as number;
+  for (const [name, field] of Object.entries(component.attributes)) {
+    if (field.kind === 'media') {
+      await model('files_related_mph').deleteMany({ where: { related_id: componentId, related_type: componentUid, field: name } });
+    } else if (field.kind === 'component' || field.kind === 'dynamiczone') {
+      const links = await model(cmpsTableName(component.collectionName)).findMany({ where: { entity_id: componentId, field: name } });
+      for (const link of links) {
+        const nestedUid = field.kind === 'component' ? field.component : (link.component_type as string);
+        const nestedComponent = getComponent(nestedUid);
+        const nestedRow = await model(nestedComponent.collectionName).findUnique({ where: { id: link.cmp_id as number } });
+        if (nestedRow) await deleteComponentRow(nestedUid, nestedRow);
+      }
+      // the _cmps link rows themselves cascade-delete when componentRow is deleted below (entity_id FK ON DELETE CASCADE)
+    }
+  }
+  await model(component.collectionName).delete({ where: { id: componentId } });
+}
+
+async function clearComponentField(ownerCollectionName: string, ownerId: number, fieldName: string) {
+  const links = await model(cmpsTableName(ownerCollectionName)).findMany({ where: { entity_id: ownerId, field: fieldName } });
+  for (const link of links) {
+    const componentUid = link.component_type as string;
+    const component = getComponent(componentUid);
+    const row = await model(component.collectionName).findUnique({ where: { id: link.cmp_id as number } });
+    if (row) await deleteComponentRow(componentUid, row);
+  }
+}
+
+async function writeComponentRow(componentUid: string, itemData: Row): Promise<number> {
+  const component = getComponent(componentUid);
+  const scalarData = buildScalarData(component.attributes, itemData);
+  const row = await model(component.collectionName).create({ data: scalarData });
+  await writeNestedFields(componentUid, component.collectionName, row.id as number, component.attributes, itemData);
+  return row.id as number;
+}
+
+async function writeComponentField(
+  ownerUid: string,
+  ownerCollectionName: string,
+  ownerId: number,
+  fieldName: string,
+  componentUid: string,
+  repeatable: boolean,
+  value: unknown,
+) {
+  await clearComponentField(ownerCollectionName, ownerId, fieldName);
+  const items = value == null ? [] : Array.isArray(value) ? value : [value];
+  if (!repeatable && items.length > 1) items.length = 1;
+  for (let i = 0; i < items.length; i++) {
+    const cmpId = await writeComponentRow(componentUid, items[i] as Row);
+    await model(cmpsTableName(ownerCollectionName)).create({
+      data: { entity_id: ownerId, cmp_id: cmpId, component_type: componentUid, field: fieldName, order: i + 1 },
+    });
+  }
+}
+
+async function writeDynamicZone(ownerCollectionName: string, ownerId: number, fieldName: string, value: unknown) {
+  await clearComponentField(ownerCollectionName, ownerId, fieldName);
+  const items = (Array.isArray(value) ? value : []) as Array<Row & { __component: string }>;
+  for (let i = 0; i < items.length; i++) {
+    const { __component: componentUid, ...rest } = items[i];
+    const cmpId = await writeComponentRow(componentUid, rest);
+    await model(cmpsTableName(ownerCollectionName)).create({
+      data: { entity_id: ownerId, cmp_id: cmpId, component_type: componentUid, field: fieldName, order: i + 1 },
+    });
+  }
+}
+
+async function writeRelation(ownerUid: string, ownerId: number, fieldName: string, value: unknown) {
+  const map = getRelationTable(ownerUid, fieldName);
+  await model(map.table).deleteMany({ where: { [map.ownerColumn]: ownerId } });
+  const targetIds = toIdArray(value);
+  for (let i = 0; i < targetIds.length; i++) {
+    const data: Row = { [map.ownerColumn]: ownerId, [map.targetColumn]: targetIds[i] };
+    if (map.targetOrderColumn) data[map.targetOrderColumn] = i + 1;
+    await model(map.table).create({ data });
+  }
+}
+
+/** Writes every non-scalar field present in `data` as a side effect once the owning row already exists. */
+async function writeNestedFields(
+  ownerUid: string,
+  collectionName: string,
+  ownerId: number,
+  attributes: Record<string, FieldSchema>,
+  data: Row,
+) {
+  for (const [name, field] of Object.entries(attributes)) {
+    if (!Object.prototype.hasOwnProperty.call(data, name)) continue;
+    switch (field.kind) {
+      case 'media':
+        await writeMedia(ownerUid, ownerId, name, data[name]);
+        break;
+      case 'component':
+        await writeComponentField(ownerUid, collectionName, ownerId, name, field.component, field.repeatable, data[name]);
+        break;
+      case 'dynamiczone':
+        await writeDynamicZone(collectionName, ownerId, name, data[name]);
+        break;
+      case 'relation':
+        await writeRelation(ownerUid, ownerId, name, data[name]);
+        break;
+    }
+  }
+}
+
+export async function createEntity(contentTypeUid: string, data: Row) {
+  const schema = getContentType(contentTypeUid);
+  const now = new Date();
+  const scalarData = buildScalarData(schema.attributes, data);
+  const row = await model(schema.collectionName).create({
+    data: {
+      document_id: generateDocumentId(),
+      ...scalarData,
+      created_at: now,
+      updated_at: now,
+      published_at: schema.draftAndPublish ? null : now,
+    },
+  });
+  await writeNestedFields(schema.uid, schema.collectionName, row.id as number, schema.attributes, data);
+  return findEntity(contentTypeUid, row.id as number);
+}
+
+export async function updateEntity(contentTypeUid: string, id: number, data: Row) {
+  const schema = getContentType(contentTypeUid);
+  const scalarData = buildScalarData(schema.attributes, data);
+  await model(schema.collectionName).update({ where: { id }, data: { ...scalarData, updated_at: new Date() } });
+  await writeNestedFields(schema.uid, schema.collectionName, id, schema.attributes, data);
+  return findEntity(contentTypeUid, id);
+}
+
+export async function deleteEntity(contentTypeUid: string, id: number) {
+  const schema = getContentType(contentTypeUid);
+  for (const [name, field] of Object.entries(schema.attributes)) {
+    if (field.kind === 'media') {
+      await model('files_related_mph').deleteMany({ where: { related_id: id, related_type: schema.uid, field: name } });
+    } else if (field.kind === 'component' || field.kind === 'dynamiczone') {
+      await clearComponentField(schema.collectionName, id, name);
+    }
+    // relations clean up via ON DELETE CASCADE on the `_lnk` tables' owner FK.
+  }
+  await model(schema.collectionName).delete({ where: { id } });
+}
+
+/**
+ * Publishes a draft row: creates (or overwrites) the sibling row sharing the
+ * same `document_id` with `published_at` set, deep-copying every owned
+ * component (fresh rows — draft and published versions never share component
+ * rows, matching Strapi's document model) while relation targets are
+ * referenced, not duplicated.
+ */
+export async function publishEntity(contentTypeUid: string, draftId: number) {
+  const schema = getContentType(contentTypeUid);
+  if (!schema.draftAndPublish) throw new Error(`${contentTypeUid} does not have draftAndPublish enabled`);
+
+  const draftRow = await model(schema.collectionName).findUnique({ where: { id: draftId } });
+  if (!draftRow) throw new Error(`Draft entity ${draftId} not found`);
+  const draft = await hydrateAttributes(schema.uid, schema.collectionName, draftRow, schema.attributes);
+
+  const existingPublished = (
+    await model(schema.collectionName).findMany({
+      where: { document_id: draftRow.document_id, published_at: { not: null } },
+      take: 1,
+    })
+  )[0];
+
+  const now = new Date();
+  const scalarData = buildScalarData(schema.attributes, draft);
+
+  let publishedId: number;
+  if (existingPublished) {
+    publishedId = existingPublished.id as number;
+    for (const [name, field] of Object.entries(schema.attributes)) {
+      if (field.kind === 'media') await model('files_related_mph').deleteMany({ where: { related_id: publishedId, related_type: schema.uid, field: name } });
+      else if (field.kind === 'component' || field.kind === 'dynamiczone') await clearComponentField(schema.collectionName, publishedId, name);
+    }
+    await model(schema.collectionName).update({ where: { id: publishedId }, data: { ...scalarData, updated_at: now, published_at: now } });
+  } else {
+    const created = await model(schema.collectionName).create({
+      data: { document_id: draftRow.document_id, ...scalarData, created_at: now, updated_at: now, published_at: now },
+    });
+    publishedId = created.id as number;
+  }
+
+  await writeNestedFields(schema.uid, schema.collectionName, publishedId, schema.attributes, draft);
+  return findEntity(contentTypeUid, publishedId);
+}
+
+/** Removes the published sibling of `draftId`'s document, leaving the draft untouched. */
+export async function unpublishEntity(contentTypeUid: string, draftId: number) {
+  const schema = getContentType(contentTypeUid);
+  if (!schema.draftAndPublish) throw new Error(`${contentTypeUid} does not have draftAndPublish enabled`);
+
+  const draftRow = await model(schema.collectionName).findUnique({ where: { id: draftId } });
+  if (!draftRow) throw new Error(`Draft entity ${draftId} not found`);
+
+  const published = (
+    await model(schema.collectionName).findMany({
+      where: { document_id: draftRow.document_id, published_at: { not: null } },
+      take: 1,
+    })
+  )[0];
+  if (!published) return;
+  await deleteEntity(contentTypeUid, published.id as number);
 }

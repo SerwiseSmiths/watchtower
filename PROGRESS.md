@@ -48,9 +48,28 @@ and `/api`, `/graphql` (API surface).
       media), bottom-tab (singleType + repeatable component with media), complaint-page (singleType,
       single + repeatable component fields). All hydrate correctly, including one genuinely-empty
       relation confirmed against raw SQL (not a mapping bug).
-- [ ] **Not done yet**: write path (create/update/delete/publish/unpublish, document_id generation).
-      Scoped out of this session for time — next task before Phase 2 can do authenticated writes
-      from the admin panel.
+- [x] Write path: `createEntity`/`updateEntity`/`deleteEntity`/`publishEntity`/`unpublishEntity` in
+      `entity-repository.ts`. Generates `document_id` on create; for draftAndPublish types, create
+      makes a draft (`publishedAt: null`), publish deep-copies components into a fresh published-row
+      sibling sharing the same `document_id` (relations are referenced, not duplicated — matches
+      Strapi's document model), unpublish removes the published sibling and leaves the draft intact.
+      Update on components/dynamic zones/relations/media is a full replace (delete old rows, write new)
+      rather than diffing. Recursive delete cleans up owned component rows + their media links
+      (`_lnk`/`_cmps` rows themselves cascade via existing FK `ON DELETE CASCADE`).
+      Also fixed: `hydrateAttributes` now exposes Strapi's system fields as `documentId`/`createdAt`/
+      `updatedAt`/`publishedAt` (camelCase, matching real Strapi API output) — missing before, caught
+      by the write-path test itself.
+      Verified via `scripts/verify-write-path.ts` — creates/updates/publishes/deletes disposable test
+      rows only (`test_write_path`, `TEST_PLAN`), self-cleans even on assertion failure, confirmed via
+      raw SQL that no orphan rows remain in the real tables afterward.
+
+**Plan deviation (API_TOKEN_SALT):** original plan assumed copying console's real `API_TOKEN_SALT`
+for byte-for-byte token parity with existing deployed tokens. User no longer has access to that value
+(hosting plan lapsed). Resolution: watchtower generates its own fresh `API_TOKEN_SALT` and issues new
+rows in `strapi_api_tokens` (same table, same HMAC-SHA512 verification algorithm — just a new salt and
+newly generated raw tokens). At Phase 4 cutover, updating nexus/serwise/serwise-website's API token env
+vars happens alongside the URL repoint, at no extra cost. Data seeding is separately covered by
+console's existing `seed:subscriptions` scripts — not this project's concern.
 
 ## Phase 2 — API layer (REST + GraphQL), auth parity
 - [ ] `src/lib/auth/api-token.ts` — HMAC-SHA512+salt verification, full-access/read-only/custom gating
