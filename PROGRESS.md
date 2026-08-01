@@ -79,7 +79,19 @@ console's existing `seed:subscriptions` scripts — not this project's concern.
       `scripts/verify-api-token-auth.ts`: valid token authenticates, full-access authorized for
       every scope, missing/garbage/non-Bearer headers all correctly rejected. Test token deleted
       after verification — original 3 production tokens (Read Only, Full, Full Access) untouched.
-- [ ] REST routes matching Strapi's query contract (populate/filters/fields/sort/pagination/status)
+- [x] REST routes: `src/app/api/[...slug]/route.ts` — one catch-all handler for both collectionType
+      (`/api/<plural>`, `/api/<plural>/:documentId`) and singleType (`/api/<singular>`), GET/POST/PUT/
+      DELETE plus `/actions/publish` and `/actions/unpublish`, Strapi's `{data, error}`/`{data, meta}`
+      envelope shapes, `documentId`-addressed (not internal numeric id, matching Strapi v5 + what nexus
+      actually calls). `src/lib/rest/query-parser.ts` parses Strapi's bracket-notation query DSL
+      (`filters[field][$operator]`, `fields[]`, `sort`, `pagination[page/pageSize]`, `status`).
+      **Known simplification**: `populate` isn't parsed — this engine always fully hydrates media/
+      components/relations regardless of what's requested (a superset of Strapi's default lazy
+      populate; harmless for consumers that only read specific keys, but worth knowing about).
+      Verified end-to-end against the real dev DB with `next dev` + curl: auth rejection (401),
+      list/filter/status query (`filters[visibility][$eq]=ACTIVE&status=published` — nexus's exact
+      real query shape), findOne by documentId, full create/update/delete cycle, and publish/unpublish
+      — all against disposable test rows only, cleaned up and confirmed via raw SQL afterward.
 - [ ] GraphQL endpoint (`graphql-yoga`) matching existing query names (pages, deviceTypes,
       subscriptionPlans, subscriptionAddons, welcomeBonus, complaintPage, globalConfig, bottomTab)
 - [ ] Parity gate: diff console vs. watchtower responses for every real call site

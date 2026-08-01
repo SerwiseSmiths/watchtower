@@ -64,7 +64,7 @@ export async function authenticateApiToken(authorizationHeader: string | null): 
   };
 }
 
-export type RequiredScope = 'find' | 'findOne' | 'create' | 'update' | 'delete' | 'publish';
+export type RequiredScope = 'find' | 'findOne' | 'create' | 'update' | 'delete' | 'publish' | 'unpublish';
 const READ_SCOPES: RequiredScope[] = ['find', 'findOne'];
 
 /**

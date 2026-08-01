@@ -151,6 +151,10 @@ export interface ListOptions {
   status?: 'draft' | 'published';
   page?: number;
   pageSize?: number;
+  filters?: Row;
+  sortField?: string;
+  sortDir?: 'asc' | 'desc';
+  fields?: string[];
 }
 
 function statusWhere(schema: ContentTypeSchema, status?: 'draft' | 'published') {
@@ -160,23 +164,34 @@ function statusWhere(schema: ContentTypeSchema, status?: 'draft' | 'published') 
   return {};
 }
 
+/** Restricts the hydrated result to `id`/`documentId` plus the requested scalar attribute names. */
+function pickFields(row: Row, fields: string[] | undefined): Row {
+  if (!fields || fields.length === 0) return row;
+  const picked: Row = { id: row.id, documentId: row.documentId };
+  for (const name of fields) if (name in row) picked[name] = row[name];
+  return picked;
+}
+
 export async function listEntities(contentTypeUid: string, options: ListOptions = {}) {
   const schema = getContentType(contentTypeUid);
   const page = options.page ?? 1;
   const pageSize = options.pageSize ?? 25;
-  const where = statusWhere(schema, options.status);
+  const where = { ...statusWhere(schema, options.status), ...(options.filters ?? {}) };
+  const orderBy = options.sortField ? { [toColumnName(options.sortField)]: options.sortDir ?? 'asc' } : { id: 'asc' as const };
 
   const [rows, total] = await Promise.all([
     model(schema.collectionName).findMany({
       where,
-      orderBy: { id: 'asc' },
+      orderBy,
       skip: (page - 1) * pageSize,
       take: pageSize,
     }),
     model(schema.collectionName).count({ where }),
   ]);
 
-  const data = await Promise.all(rows.map((row) => hydrateAttributes(schema.uid, schema.collectionName, row, schema.attributes)));
+  const data = await Promise.all(
+    rows.map(async (row) => pickFields(await hydrateAttributes(schema.uid, schema.collectionName, row, schema.attributes), options.fields)),
+  );
 
   return {
     data,
@@ -190,6 +205,23 @@ export async function findEntity(contentTypeUid: string, id: number, options: { 
   const rows = await model(schema.collectionName).findMany({ where, take: 1 });
   const row = rows[0];
   if (!row) return null;
+  return hydrateAttributes(schema.uid, schema.collectionName, row, schema.attributes);
+}
+
+/**
+ * Strapi v5's REST API addresses single entities by `documentId` in the URL,
+ * not the internal numeric id — this is what nexus/serwise actually call.
+ * Without an explicit status, prefers the published row (matching Strapi's
+ * default `find`/`findOne` behavior of serving published content).
+ */
+export async function findEntityByDocumentId(contentTypeUid: string, documentId: string, options: { status?: 'draft' | 'published' } = {}) {
+  const schema = getContentType(contentTypeUid);
+  const where: Row = { document_id: documentId, ...statusWhere(schema, options.status) };
+  // A document has at most 2 rows (draft + published) — fetch both and pick in JS rather than
+  // relying on the DB's NULLS FIRST/LAST default for `published_at`, which varies by sort direction.
+  const rows = await model(schema.collectionName).findMany({ where, take: 2 });
+  if (rows.length === 0) return null;
+  const row = options.status ? rows[0] : (rows.find((r) => r.published_at != null) ?? rows[0]);
   return hydrateAttributes(schema.uid, schema.collectionName, row, schema.attributes);
 }
 
