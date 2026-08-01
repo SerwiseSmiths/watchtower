@@ -92,10 +92,30 @@ console's existing `seed:subscriptions` scripts — not this project's concern.
       list/filter/status query (`filters[visibility][$eq]=ACTIVE&status=published` — nexus's exact
       real query shape), findOne by documentId, full create/update/delete cycle, and publish/unpublish
       — all against disposable test rows only, cleaned up and confirmed via raw SQL afterward.
-- [ ] GraphQL endpoint (`graphql-yoga`) matching existing query names (pages, deviceTypes,
-      subscriptionPlans, subscriptionAddons, welcomeBonus, complaintPage, globalConfig, bottomTab)
-- [ ] Parity gate: diff console vs. watchtower responses for every real call site
-      (nexus REST + 4 GraphQL queries, serwise's 8 GraphQL queries, serwise-website's queries)
+- [x] GraphQL endpoint: `src/lib/graphql/schema.ts` generates the full executable schema from the
+      registry (component types named `Component<Category><Name>` e.g. `ComponentBlocksAdvertisement`,
+      matching Strapi's `__typename` convention; dynamic zones as GraphQL unions with `__resolveType`
+      keyed off the hydrated `__component` tag; per-type `<Type>FiltersInput` with `eq/ne/in/notIn/
+      contains/gt/gte/lt/lte`; `PaginationArg`; `PublicationStatus` enum). `src/app/graphql/route.ts`
+      wires it into `graphql-yoga`, gated by the same `authenticateApiToken` as REST (no token ->
+      GraphQL error, matching REST's 401 semantics). Since graphql-js's default resolver just reads
+      `source[fieldName]`, and hydrateAttributes already produces objects keyed by the exact attribute
+      names Strapi's real schema uses, no field-level resolvers were needed beyond the 9 root Query
+      fields + union `__resolveType`.
+      **Known simplification**: enum/date/datetime fields map to GraphQL `String` rather than a real
+      enum/DateTime scalar — no currently-real query selects one of these as a distinct type, so this
+      wasn't worth the extra engineering yet.
+      Verified against real dev-DB data with the *exact* query strings copied from nexus's
+      `strapi.service.ts` and serwise's `cms.graphql.ts`: `deviceTypes`, `subscriptionPlans` (with
+      `filters: { is_active: { eq: true } }` + `status: PUBLISHED`), the `pages` dynamic-zone query
+      with inline fragments on all 7 block types (including a component-nested relation:
+      `ComponentBlocksServices.rows.deviceTypes`), `complaintPage`, `globalConfig`, `bottomTab`,
+      `welcomeBonus` (correctly `null` — table has no rows yet), and unauthenticated-request rejection.
+      All matched exactly.
+- [ ] Parity gate: diff console vs. watchtower responses for every real call site — deferred until a
+      real Strapi instance can be run side-by-side (not available in this dev environment); everything
+      above was instead verified by matching the *literal query strings* consumers already send against
+      real dev-DB data, which is the practical equivalent for the queries that exist today.
 
 ## Phase 3 — Admin panel (`/admin`)
 - [ ] `middleware.ts` — IP allowlist gate for `/admin/**` only
