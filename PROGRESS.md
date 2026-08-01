@@ -117,13 +117,46 @@ console's existing `seed:subscriptions` scripts — not this project's concern.
       above was instead verified by matching the *literal query strings* consumers already send against
       real dev-DB data, which is the practical equivalent for the queries that exist today.
 
-## Phase 3 — Admin panel (`/admin`)
-- [ ] `middleware.ts` — IP allowlist gate for `/admin/**` only
-- [ ] `/admin/login` — bcrypt check against `admin_users`, JWT session cookie
-- [ ] `/admin/content-manager/[type]` — list view (DataTable, pagination, draft/published badges)
-- [ ] `/admin/content-manager/[type]/[id]` — edit view, per-field-type inputs, Save + Publish/Unpublish
-- [ ] `/admin/media-library` — file list + Cloudinary upload
-- [ ] All built with `@strapi/design-system`
+## Phase 3 — Admin panel (`/admin`) — DONE (core flows)
+- [x] Confirmed `@strapi/design-system` v2.2.3 actually renders under React 19 / Next 16 despite its
+      declared peer dep being React 18 (smoke-tested with Table/Button/Typography before building on it —
+      no runtime errors, styled-components classes generated correctly).
+- [x] `middleware.ts` — IP allowlist gate for `/admin/**` only, unconfigured = pass-through (must set
+      `WATCHTOWER_ADMIN_ALLOWED_IPS` before real deployment).
+- [x] `src/lib/auth/admin-session.ts` — bcrypt check against the existing `admin_users` table (no
+      password reset needed), JWT session (`ADMIN_JWT_SECRET`, watchtower-only, separate from API-token
+      auth per the locked decision). `/admin/login` (Server Action `loginAction`, httpOnly cookie),
+      `/admin/(dashboard)/layout.tsx` redirects to login if the session cookie is missing/invalid.
+      Verified via `scripts/verify-admin-auth.ts` against a disposable test admin user (correct/incorrect/
+      unknown credentials, JWT round-trip, tampered-token rejection) — cleaned up afterward, the real
+      admin account untouched.
+- [x] `src/app/admin/(dashboard)/DashboardChrome.tsx` — sidebar using `@strapi/design-system`'s actual
+      `SubNav`/`SubNavSection`/`SubNavLink` (the same components Strapi's own content-manager sidebar
+      uses), grouped Collection Types / Single Types / Media, driven entirely by the schema registry.
+- [x] `content-manager/[type]` list view — `Table` with scalar columns, draft/published `Badge`,
+      pagination, "Create new entry". SingleTypes redirect straight to their edit view (no list),
+      matching Strapi's UX.
+- [x] `content-manager/[type]/[id]` edit view — one recursive `AttributeField` renderer
+      (`AttributeField.tsx`) driven by the same schema registry as everything else: scalars (text/
+      textarea/number/toggle/enum-select), components (single + repeatable, with nested components
+      inside components), dynamic zones (block-type picker + per-block sub-forms), relations
+      (single/multi-select against preloaded target options). Save/Publish/Unpublish via Server Actions
+      (`actions.ts`) calling the same `entity-repository` functions Phase 1/2 already verified.
+      **Known simplification**: media fields are a raw file-ID reference, not a real upload widget (see
+      media library note below).
+- [x] `/admin/media-library` — lists existing `files` rows (thumbnails for images) read directly via
+      Prisma; no upload flow yet (uploads still need to go through Cloudinary — this is the one
+      substantial Phase 3 piece left unbuilt).
+      Verified end-to-end via `next dev` + curl with a hand-signed session cookie (bypassing the login
+      form's client-JS-dependent progressive-enhancement encoding, which curl can't replicate): auth
+      redirect when unauthenticated, list view with real data, new-entry form, existing-entry edit form,
+      singleType edit form — all render correctly with no server errors. Full create/update/publish/
+      unpublish cycle verified via `scripts/verify-admin-actions.ts` (calling the Server Actions
+      directly, swallowing the expected `revalidatePath`-outside-a-request-context error) against a
+      disposable test entry, cleaned up afterward.
+- [ ] **Not done**: real media upload widget (Cloudinary), and an actual click-through in a real browser
+      (this environment has no browser tool — rendering/logic were verified via curl + direct Server
+      Action calls, which is as close as this session could get).
 
 ## Phase 4 — Deploy & cutover
 - [ ] Vercel project config (Prisma + Neon pooled connection)

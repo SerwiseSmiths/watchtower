@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { authenticateApiToken, authorizeApiToken, type RequiredScope } from '@/lib/auth/api-token';
-import { getContentTypeByPluralName, getContentTypeBySingularName } from '@/lib/content-schema/registry';
-import type { ContentTypeSchema } from '@/lib/content-schema/types';
+import { resolveContentTypeSlug } from '@/lib/content-schema/registry';
 import {
   createEntity,
   deleteEntity,
@@ -20,12 +19,8 @@ function errorResponse(status: number, name: string, message: string) {
   return NextResponse.json({ data: null, error: { status, name, message, details: {} } }, { status });
 }
 
-function resolveContentType(typeSegment: string): ContentTypeSchema | null {
-  const collection = getContentTypeByPluralName(typeSegment);
-  if (collection?.kind === 'collectionType') return collection;
-  const single = getContentTypeBySingularName(typeSegment);
-  if (single?.kind === 'singleType') return single;
-  return null;
+function resolveContentType(typeSegment: string) {
+  return resolveContentTypeSlug(typeSegment);
 }
 
 async function authorize(request: NextRequest, uid: string, scope: RequiredScope) {

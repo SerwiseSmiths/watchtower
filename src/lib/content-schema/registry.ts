@@ -19,6 +19,19 @@ export function getContentTypeBySingularName(singularName: string): ContentTypeS
   return contentTypeSchemas.find((c) => c.singularName === singularName);
 }
 
+/** Resolves a URL slug to its content type — plural name for collection types, singular for single types. */
+export function resolveContentTypeSlug(slug: string): ContentTypeSchema | null {
+  const collection = getContentTypeByPluralName(slug);
+  if (collection?.kind === 'collectionType') return collection;
+  const single = getContentTypeBySingularName(slug);
+  if (single?.kind === 'singleType') return single;
+  return null;
+}
+
+export function slugForContentType(schema: ContentTypeSchema): string {
+  return schema.kind === 'collectionType' ? schema.pluralName : schema.singularName;
+}
+
 export function getComponent(uid: string): ComponentSchema {
   const schema = componentsByUid.get(uid);
   if (!schema) throw new Error(`Unknown component uid: ${uid}`);
