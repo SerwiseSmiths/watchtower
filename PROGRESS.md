@@ -72,7 +72,13 @@ vars happens alongside the URL repoint, at no extra cost. Data seeding is separa
 console's existing `seed:subscriptions` scripts — not this project's concern.
 
 ## Phase 2 — API layer (REST + GraphQL), auth parity
-- [ ] `src/lib/auth/api-token.ts` — HMAC-SHA512+salt verification, full-access/read-only/custom gating
+- [x] `src/lib/auth/api-token.ts` — HMAC-SHA512+salt verification (`authenticateApiToken`, exact
+      port of Strapi's `admin::api-token` hash/verify), full-access/read-only/custom scope gating
+      (`authorizeApiToken`). `scripts/create-api-token.ts` mints new tokens under watchtower's own
+      `API_TOKEN_SALT` (see Phase 0 deviation note above — old salt unrecoverable). Verified via
+      `scripts/verify-api-token-auth.ts`: valid token authenticates, full-access authorized for
+      every scope, missing/garbage/non-Bearer headers all correctly rejected. Test token deleted
+      after verification — original 3 production tokens (Read Only, Full, Full Access) untouched.
 - [ ] REST routes matching Strapi's query contract (populate/filters/fields/sort/pagination/status)
 - [ ] GraphQL endpoint (`graphql-yoga`) matching existing query names (pages, deviceTypes,
       subscriptionPlans, subscriptionAddons, welcomeBonus, complaintPage, globalConfig, bottomTab)
