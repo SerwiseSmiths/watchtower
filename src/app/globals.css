@@ -1,4 +1,6 @@
 :root {
+  --hScale: 1;
+  --vScale: 1;
   --bg-dark: #0a0a0c;
   --accent-cyan: #00f2ff;
   --text-muted: #888891;
@@ -27,7 +29,7 @@ body {
   background: var(--glass);
   backdrop-filter: blur(10px);
   border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 24px;
+  border-radius: calc(24px * var(--hScale, 1));
   transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
 }
 
@@ -42,8 +44,8 @@ body {
   background: var(--accent-cyan);
   color: #000;
   font-weight: 700;
-  border-radius: 50px;
-  padding: 14px 36px;
+  border-radius: calc(50px * var(--hScale, 1));
+  padding: calc(14px * var(--vScale, 1)) calc(36px * var(--hScale, 1));
   transition: all 0.3s ease;
   border: none;
   font-size: 1.1rem;
@@ -73,13 +75,13 @@ body {
 }
 
 .feature-icon {
-  width: 60px;
-  height: 60px;
+  width: calc(60px * var(--hScale, 1));
+  height: calc(60px * var(--vScale, 1));
   background: rgba(0, 242, 255, 0.1);
-  border-radius: 16px;
+  border-radius: calc(16px * var(--hScale, 1));
   display: flex;
   align-items: center;
   justify-content: center;
   color: var(--accent-cyan);
-  margin-bottom: 20px;
+  margin-bottom: calc(20px * var(--vScale, 1));
 }

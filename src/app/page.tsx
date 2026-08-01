@@ -3,6 +3,7 @@
 import Image from 'next/image';
 import { motion } from 'framer-motion';
 import { Shield, Eye, Bell, Lock, ArrowRight, Smartphone } from 'lucide-react';
+import { horizontalScale, verticalScale } from '@/lib/matrix.utils';
 
 export default function Home() {
   const deepLink = "https://radix.app.serwise.co.in";
@@ -43,7 +44,7 @@ export default function Home() {
           <h1 className="display-1 fw-bold mb-4 text-gradient">
             Vigilance Perfected.
           </h1>
-          <p className="lead text-muted mx-auto mb-5" style={{ maxWidth: '700px' }}>
+          <p className="lead text-muted mx-auto mb-5" style={{ maxWidth: horizontalScale(700) }}>
             Next-generation security monitoring for elite operations. Watchtower provides real-time oversight and absolute control over your digital and physical assets.
           </p>
           <div className="d-flex justify-content-center gap-3 flex-wrap">
@@ -63,7 +64,7 @@ export default function Home() {
           animate={{ opacity: 1, scale: 1 }}
           transition={{ delay: 0.4, duration: 1 }}
         >
-          <div className="glass-card mx-auto p-4 shadow-lg" style={{ maxWidth: '1000px', height: '400px', background: 'rgba(255,255,255,0.02)' }}>
+          <div className="glass-card mx-auto p-4 shadow-lg" style={{ maxWidth: horizontalScale(1000), height: verticalScale(400), background: 'rgba(255,255,255,0.02)' }}>
              <div className="w-100 h-100 d-flex align-items-center justify-content-center flex-column text-muted border border-secondary border-dashed rounded-4">
                 <Shield size={64} className="mb-3 opacity-25" />
                 <p>Interactive Security Dashboard Preview</p>

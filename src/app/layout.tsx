@@ -4,6 +4,7 @@ import "bootstrap/dist/css/bootstrap.min.css";
 import "./globals.css";
 
 import BootstrapClient from "@/components/BootstrapClient";
+import { ScaleVars } from "@/components/ScaleVars";
 
 const outfit = Outfit({
   subsets: ["latin"],
@@ -23,6 +24,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={outfit.className}>
+        <ScaleVars />
         {children}
         <BootstrapClient />
       </body>
