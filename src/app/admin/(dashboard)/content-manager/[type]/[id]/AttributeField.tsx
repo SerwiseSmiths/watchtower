@@ -1,21 +1,27 @@
 'use client';
 
+import { useMemo, useState } from 'react';
+import NextLink from 'next/link';
 import {
+  Accordion,
   Box,
+  Button,
+  Combobox,
+  ComboboxOption,
   Field,
   Flex,
+  Grid,
   IconButton,
-  MultiSelect,
-  MultiSelectOption,
+  Modal,
   NumberInput,
   SingleSelect,
   SingleSelectOption,
-  TextInput,
-  Textarea,
   Toggle,
   Typography,
+  TextInput,
+  Textarea,
 } from '@strapi/design-system';
-import { Plus, Trash } from '@strapi/icons';
+import { ArrowDown, ArrowUp, Cross, Link as LinkIcon, Plus, Trash } from '@strapi/icons';
 import type { FieldSchema } from '@/lib/content-schema/types';
 
 export interface ComponentDef {
@@ -25,7 +31,17 @@ export interface ComponentDef {
 
 export interface RelationOption {
   id: number;
+  documentId: string;
   label: string;
+  targetSlug: string;
+}
+
+export interface MediaLibraryFile {
+  id: number;
+  url: string;
+  name: string;
+  mime: string;
+  alternativeText: string | null;
 }
 
 export interface AttributeFieldProps {
@@ -35,6 +51,7 @@ export interface AttributeFieldProps {
   onChange: (value: unknown) => void;
   components: Record<string, ComponentDef>;
   relationOptions: Record<string, RelationOption[]>;
+  mediaLibrary: MediaLibraryFile[];
 }
 
 function emptyValueFor(attributes: Record<string, FieldSchema>): Record<string, unknown> {
@@ -43,6 +60,14 @@ function emptyValueFor(attributes: Record<string, FieldSchema>): Record<string, 
     if (field.kind === 'scalar' && field.default !== undefined) result[name] = field.default;
   }
   return result;
+}
+
+function move<T>(items: T[], from: number, to: number): T[] {
+  if (to < 0 || to >= items.length) return items;
+  const next = [...items];
+  const [item] = next.splice(from, 1);
+  next.splice(to, 0, item);
+  return next;
 }
 
 function ScalarField({ name, field, value, onChange }: AttributeFieldProps) {
@@ -92,80 +117,240 @@ function ScalarField({ name, field, value, onChange }: AttributeFieldProps) {
   );
 }
 
-function MediaField({ field, value, onChange }: AttributeFieldProps) {
-  if (field.kind !== 'media') return null;
-  // Simplification: reference existing already-uploaded files by numeric id rather than a full
-  // upload widget — see PROGRESS.md. Shows the current file's URL (if any) for context.
-  if (field.multiple) {
-    const ids = Array.isArray(value) ? (value as Array<{ id: number; url?: string }>) : [];
-    return (
-      <Box>
-        {ids.map((f, i) => (
-          <Typography key={i} tag="div" variant="pi" textColor="neutral600">
-            file id {f.id ?? f} {f.url ? `— ${f.url}` : ''}
-          </Typography>
-        ))}
-        <TextInput
-          placeholder="Comma-separated file IDs"
-          value=""
-          onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
-            const rawIds = e.target.value
-              .split(',')
-              .map((s) => parseInt(s.trim(), 10))
-              .filter((n) => !Number.isNaN(n));
-            onChange(rawIds.map((id) => ({ id })));
-          }}
-        />
-      </Box>
-    );
-  }
-  const current = value as { id: number; url?: string } | null;
+function isImage(mime: string): boolean {
+  return mime.startsWith('image/');
+}
+
+function MediaThumb({ file, onRemove }: { file: { id: number; url?: string; mime?: string; name?: string } | null; onRemove?: () => void }) {
+  if (!file) return null;
   return (
-    <Box>
-      {current?.url && (
-        <Typography tag="div" variant="pi" textColor="neutral600">
-          Current: {current.url}
-        </Typography>
+    <Box position="relative" width="8rem" height="8rem" hasRadius overflow="hidden" background="neutral150" borderColor="neutral200" style={{ borderWidth: 1, borderStyle: 'solid' }}>
+      {file.url && isImage(file.mime ?? '') ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={file.url} alt={file.name ?? ''} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+      ) : (
+        <Flex height="100%" alignItems="center" justifyContent="center">
+          <Typography variant="pi" ellipsis>
+            {file?.name ?? 'file'}
+          </Typography>
+        </Flex>
       )}
-      <NumberInput
-        placeholder="File ID"
-        value={current?.id}
-        onValueChange={(v) => onChange(v == null ? null : { id: v })}
-      />
+      {onRemove && (
+        <Box position="absolute" top={1} right={1}>
+          <IconButton label="Remove" onClick={onRemove} variant="danger-light">
+            <Cross />
+          </IconButton>
+        </Box>
+      )}
     </Box>
   );
 }
 
-function RelationField({ value, onChange, options, multi }: { value: unknown; onChange: (v: unknown) => void; options: RelationOption[]; multi: boolean }) {
-  if (multi) {
-    const selected = (Array.isArray(value) ? value : []).map((v: { id?: number } | number) =>
-      String(typeof v === 'object' ? v.id : v),
-    );
+function MediaPickerModal({
+  mediaLibrary,
+  onSelect,
+  trigger,
+}: {
+  mediaLibrary: MediaLibraryFile[];
+  onSelect: (file: MediaLibraryFile) => void;
+  trigger: React.ReactNode;
+}) {
+  const [open, setOpen] = useState(false);
+  return (
+    <Modal.Root open={open} onOpenChange={setOpen}>
+      <Modal.Trigger>{trigger}</Modal.Trigger>
+      <Modal.Content>
+        <Modal.Header>
+          <Modal.Title>Select a file</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          <Grid.Root gap={3}>
+            {mediaLibrary.map((file) => (
+              <Grid.Item key={file.id} col={3} s={6} xs={12}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    onSelect(file);
+                    setOpen(false);
+                  }}
+                  style={{ cursor: 'pointer', width: '100%', textAlign: 'left', border: 'none', background: 'none', padding: 0 }}
+                >
+                  <MediaThumb file={file} />
+                  <Typography variant="pi" ellipsis>
+                    {file.name}
+                  </Typography>
+                </button>
+              </Grid.Item>
+            ))}
+            {mediaLibrary.length === 0 && <Typography textColor="neutral600">No files in the media library yet.</Typography>}
+          </Grid.Root>
+        </Modal.Body>
+      </Modal.Content>
+    </Modal.Root>
+  );
+}
+
+function MediaField({ field, value, onChange, mediaLibrary }: AttributeFieldProps) {
+  if (field.kind !== 'media') return null;
+
+  if (field.multiple) {
+    const files = (Array.isArray(value) ? value : []) as Array<{ id: number; url?: string; mime?: string; name?: string }>;
     return (
-      <MultiSelect
-        value={selected}
-        onChange={(vals: string[]) => onChange(vals.map((v) => parseInt(v, 10)))}
-      >
-        {options.map((opt) => (
-          <MultiSelectOption key={opt.id} value={String(opt.id)}>
-            {opt.label}
-          </MultiSelectOption>
-        ))}
-      </MultiSelect>
+      <Flex direction="column" alignItems="stretch" gap={2}>
+        <Flex gap={2} wrap="wrap">
+          {files.map((f, i) => (
+            <MediaThumb key={f.id ?? i} file={f} onRemove={() => onChange(files.filter((_, idx) => idx !== i))} />
+          ))}
+        </Flex>
+        <MediaPickerModal
+          mediaLibrary={mediaLibrary}
+          onSelect={(file) => onChange([...files, file])}
+          trigger={
+            <Button variant="secondary" startIcon={<Plus />}>
+              Add asset
+            </Button>
+          }
+        />
+      </Flex>
     );
   }
-  const currentId = value && typeof value === 'object' ? (value as { id?: number }).id : value;
+
+  const current = value as { id: number; url?: string; mime?: string; name?: string } | null;
   return (
-    <SingleSelect
-      value={currentId != null ? String(currentId) : undefined}
-      onChange={(v) => onChange(v == null ? null : { id: parseInt(String(v), 10) })}
-    >
-      {options.map((opt) => (
-        <SingleSelectOption key={opt.id} value={String(opt.id)}>
-          {opt.label}
-        </SingleSelectOption>
-      ))}
-    </SingleSelect>
+    <Flex direction="column" alignItems="flex-start" gap={2}>
+      {current ? (
+        <MediaThumb file={current} onRemove={() => onChange(null)} />
+      ) : (
+        <MediaPickerModal
+          mediaLibrary={mediaLibrary}
+          onSelect={(file) => onChange(file)}
+          trigger={
+            <button
+              type="button"
+              style={{
+                width: '8rem',
+                height: '8rem',
+                borderRadius: '4px',
+                borderWidth: 2,
+                borderStyle: 'dashed',
+                borderColor: '#dcdce4',
+                cursor: 'pointer',
+                background: 'none',
+              }}
+            >
+              <Flex height="100%" alignItems="center" justifyContent="center" direction="column" gap={1}>
+                <Plus />
+                <Typography variant="pi">Add asset</Typography>
+              </Flex>
+            </button>
+          }
+        />
+      )}
+    </Flex>
+  );
+}
+
+function RelationField({
+  value,
+  onChange,
+  options,
+  multi,
+}: {
+  value: unknown;
+  onChange: (v: unknown) => void;
+  options: RelationOption[];
+  multi: boolean;
+}) {
+  const [filter, setFilter] = useState('');
+
+  const selected = useMemo(() => {
+    const raw = multi ? (Array.isArray(value) ? value : []) : value != null ? [value] : [];
+    const ids = raw
+      .map((v: { id?: number } | number) => (typeof v === 'object' ? v.id : v))
+      .filter((id): id is number => typeof id === 'number');
+    return ids.map((id) => options.find((o) => o.id === id)).filter((o): o is RelationOption => !!o);
+  }, [value, options, multi]);
+
+  const selectedIds = new Set(selected.map((o) => o.id));
+  const available = options.filter((o) => !selectedIds.has(o.id) && o.label.toLowerCase().includes(filter.toLowerCase()));
+
+  function addRelation(id: number) {
+    if (multi) {
+      onChange([...selected.map((o) => o.id), id]);
+    } else {
+      onChange({ id });
+    }
+    setFilter('');
+  }
+
+  function removeRelation(id: number) {
+    if (multi) {
+      onChange(selected.filter((o) => o.id !== id).map((o) => o.id));
+    } else {
+      onChange(null);
+    }
+  }
+
+  function reorder(index: number, direction: -1 | 1) {
+    const reordered = move(selected, index, index + direction);
+    onChange(reordered.map((o) => o.id));
+  }
+
+  return (
+    <Flex direction="column" alignItems="stretch" gap={2}>
+      <Combobox
+        placeholder="Add relation…"
+        value={undefined}
+        filterValue={filter}
+        onFilterValueChange={setFilter}
+        onChange={(v) => v != null && addRelation(parseInt(String(v), 10))}
+      >
+        {available.map((opt) => (
+          <ComboboxOption key={opt.id} value={String(opt.id)}>
+            {opt.label}
+          </ComboboxOption>
+        ))}
+      </Combobox>
+
+      <Flex direction="column" alignItems="stretch" gap={1} tag="ul" style={{ listStyle: 'none' }}>
+        {selected.map((opt, index) => (
+          <Flex
+            key={opt.id}
+            tag="li"
+            justifyContent="space-between"
+            alignItems="center"
+            padding={2}
+            background="neutral100"
+            hasRadius
+          >
+            <NextLink href={`/admin/content-manager/${opt.targetSlug}/${opt.documentId}`} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <LinkIcon width="1.2rem" height="1.2rem" />
+              <Typography>{opt.label}</Typography>
+            </NextLink>
+            <Flex gap={1}>
+              {multi && (
+                <>
+                  <IconButton label="Move up" onClick={() => reorder(index, -1)} disabled={index === 0}>
+                    <ArrowUp />
+                  </IconButton>
+                  <IconButton label="Move down" onClick={() => reorder(index, 1)} disabled={index === selected.length - 1}>
+                    <ArrowDown />
+                  </IconButton>
+                </>
+              )}
+              <IconButton label="Remove" onClick={() => removeRelation(opt.id)}>
+                <Cross />
+              </IconButton>
+            </Flex>
+          </Flex>
+        ))}
+        {selected.length === 0 && (
+          <Typography variant="pi" textColor="neutral600">
+            No relations selected.
+          </Typography>
+        )}
+      </Flex>
+    </Flex>
   );
 }
 
@@ -175,35 +360,90 @@ function ComponentSubForm({
   onChange,
   components,
   relationOptions,
+  mediaLibrary,
 }: {
   attributes: Record<string, FieldSchema>;
   value: Record<string, unknown>;
   onChange: (value: Record<string, unknown>) => void;
   components: Record<string, ComponentDef>;
   relationOptions: Record<string, RelationOption[]>;
+  mediaLibrary: MediaLibraryFile[];
 }) {
   return (
-    <Box padding={4} background="neutral0" hasRadius borderColor="neutral200" style={{ borderWidth: 1, borderStyle: 'solid' }}>
-      <Flex direction="column" alignItems="stretch" gap={4}>
-        {Object.entries(attributes).map(([subName, subField]) => (
-          <Field.Root key={subName} name={subName}>
-            <Field.Label>{subName}</Field.Label>
-            <AttributeField
-              name={subName}
-              field={subField}
-              value={value?.[subName]}
-              onChange={(v) => onChange({ ...value, [subName]: v })}
-              components={components}
-              relationOptions={relationOptions}
-            />
-          </Field.Root>
-        ))}
-      </Flex>
-    </Box>
+    <Flex direction="column" alignItems="stretch" gap={4}>
+      {Object.entries(attributes).map(([subName, subField]) => (
+        <Field.Root key={subName} name={subName}>
+          <Field.Label>{subName}</Field.Label>
+          <AttributeField
+            name={subName}
+            field={subField}
+            value={value?.[subName]}
+            onChange={(v) => onChange({ ...value, [subName]: v })}
+            components={components}
+            relationOptions={relationOptions}
+            mediaLibrary={mediaLibrary}
+          />
+        </Field.Root>
+      ))}
+    </Flex>
   );
 }
 
-function ComponentField({ field, value, onChange, components, relationOptions }: AttributeFieldProps) {
+/** Collapsed-by-default (open for newly-added items), independent per block — matches Strapi's
+ * repeatable-component/dynamic-zone accordion pattern. Reordering is button-based rather than
+ * drag-and-drop (Strapi supports both; DnD was out of scope here — see PROGRESS.md). */
+function CollapsibleBlock({
+  title,
+  subtitle,
+  defaultOpen,
+  onMoveUp,
+  onMoveDown,
+  onRemove,
+  canMoveUp,
+  canMoveDown,
+  children,
+}: {
+  title: string;
+  subtitle?: string;
+  defaultOpen: boolean;
+  onMoveUp?: () => void;
+  onMoveDown?: () => void;
+  onRemove: () => void;
+  canMoveUp: boolean;
+  canMoveDown: boolean;
+  children: React.ReactNode;
+}) {
+  const [open, setOpen] = useState(defaultOpen);
+  return (
+    <Accordion.Root value={open ? 'content' : ''} onValueChange={(v) => setOpen(!!v)} collapsible>
+      <Accordion.Item value="content">
+        <Accordion.Header>
+          <Accordion.Trigger description={subtitle}>{title}</Accordion.Trigger>
+          <Accordion.Actions>
+            {onMoveUp && (
+              <IconButton label="Move up" onClick={onMoveUp} disabled={!canMoveUp}>
+                <ArrowUp />
+              </IconButton>
+            )}
+            {onMoveDown && (
+              <IconButton label="Move down" onClick={onMoveDown} disabled={!canMoveDown}>
+                <ArrowDown />
+              </IconButton>
+            )}
+            <IconButton label="Delete" onClick={onRemove}>
+              <Trash />
+            </IconButton>
+          </Accordion.Actions>
+        </Accordion.Header>
+        <Accordion.Content>
+          <Box padding={4}>{children}</Box>
+        </Accordion.Content>
+      </Accordion.Item>
+    </Accordion.Root>
+  );
+}
+
+function ComponentField({ field, value, onChange, components, relationOptions, mediaLibrary }: AttributeFieldProps) {
   if (field.kind !== 'component') return null;
   const componentDef = components[field.component];
   if (!componentDef) return <Typography textColor="danger600">Unknown component {field.component}</Typography>;
@@ -211,13 +451,16 @@ function ComponentField({ field, value, onChange, components, relationOptions }:
   if (!field.repeatable) {
     const current = (value as Record<string, unknown>) ?? {};
     return (
-      <ComponentSubForm
-        attributes={componentDef.attributes}
-        value={current}
-        onChange={onChange}
-        components={components}
-        relationOptions={relationOptions}
-      />
+      <Box padding={4} background="neutral0" hasRadius borderColor="neutral200" style={{ borderWidth: 1, borderStyle: 'solid' }}>
+        <ComponentSubForm
+          attributes={componentDef.attributes}
+          value={current}
+          onChange={onChange}
+          components={components}
+          relationOptions={relationOptions}
+          mediaLibrary={mediaLibrary}
+        />
+      </Box>
     );
   }
 
@@ -225,38 +468,41 @@ function ComponentField({ field, value, onChange, components, relationOptions }:
   return (
     <Flex direction="column" alignItems="stretch" gap={2}>
       {items.map((item, index) => (
-        <Flex key={index} gap={2} alignItems="flex-start">
-          <Box flex={1}>
-            <ComponentSubForm
-              attributes={componentDef.attributes}
-              value={item}
-              onChange={(v) => {
-                const next = [...items];
-                next[index] = v;
-                onChange(next);
-              }}
-              components={components}
-              relationOptions={relationOptions}
-            />
-          </Box>
-          <IconButton
-            label="Remove"
-            onClick={() => onChange(items.filter((_, i) => i !== index))}
-          >
-            <Trash />
-          </IconButton>
-        </Flex>
+        <CollapsibleBlock
+          key={index}
+          title={`${componentDef.displayName} #${index + 1}`}
+          defaultOpen={false}
+          canMoveUp={index > 0}
+          canMoveDown={index < items.length - 1}
+          onMoveUp={() => onChange(move(items, index, index - 1))}
+          onMoveDown={() => onChange(move(items, index, index + 1))}
+          onRemove={() => onChange(items.filter((_, i) => i !== index))}
+        >
+          <ComponentSubForm
+            attributes={componentDef.attributes}
+            value={item}
+            onChange={(v) => {
+              const next = [...items];
+              next[index] = v;
+              onChange(next);
+            }}
+            components={components}
+            relationOptions={relationOptions}
+            mediaLibrary={mediaLibrary}
+          />
+        </CollapsibleBlock>
       ))}
-      <IconButton label="Add" onClick={() => onChange([...items, emptyValueFor(componentDef.attributes)])}>
-        <Plus />
-      </IconButton>
+      <Button variant="secondary" startIcon={<Plus />} onClick={() => onChange([...items, emptyValueFor(componentDef.attributes)])}>
+        Add an entry
+      </Button>
     </Flex>
   );
 }
 
-function DynamicZoneField({ field, value, onChange, components, relationOptions }: AttributeFieldProps) {
+function DynamicZoneField({ field, value, onChange, components, relationOptions, mediaLibrary }: AttributeFieldProps) {
   if (field.kind !== 'dynamiczone') return null;
   const items = (Array.isArray(value) ? value : []) as Array<Record<string, unknown> & { __component: string }>;
+  const [picking, setPicking] = useState(false);
 
   return (
     <Flex direction="column" alignItems="stretch" gap={2}>
@@ -264,15 +510,17 @@ function DynamicZoneField({ field, value, onChange, components, relationOptions 
         const componentDef = components[item.__component];
         if (!componentDef) return null;
         return (
-          <Box key={index} padding={2} background="neutral150" hasRadius>
-            <Flex justifyContent="space-between" alignItems="center" paddingBottom={2}>
-              <Typography variant="pi" fontWeight="bold">
-                {componentDef.displayName} ({item.__component})
-              </Typography>
-              <IconButton label="Remove block" onClick={() => onChange(items.filter((_, i) => i !== index))}>
-                <Trash />
-              </IconButton>
-            </Flex>
+          <CollapsibleBlock
+            key={index}
+            title={componentDef.displayName}
+            subtitle={item.__component}
+            defaultOpen={false}
+            canMoveUp={index > 0}
+            canMoveDown={index < items.length - 1}
+            onMoveUp={() => onChange(move(items, index, index - 1))}
+            onMoveDown={() => onChange(move(items, index, index + 1))}
+            onRemove={() => onChange(items.filter((_, i) => i !== index))}
+          >
             <ComponentSubForm
               attributes={componentDef.attributes}
               value={item}
@@ -283,25 +531,38 @@ function DynamicZoneField({ field, value, onChange, components, relationOptions 
               }}
               components={components}
               relationOptions={relationOptions}
+              mediaLibrary={mediaLibrary}
             />
-          </Box>
+          </CollapsibleBlock>
         );
       })}
-      <SingleSelect
-        placeholder="Add a block…"
-        value={undefined}
-        onChange={(componentUid) => {
-          const componentDef = components[String(componentUid)];
-          if (!componentDef) return;
-          onChange([...items, { __component: String(componentUid), ...emptyValueFor(componentDef.attributes) }]);
-        }}
-      >
-        {field.components.map((uid) => (
-          <SingleSelectOption key={uid} value={uid}>
-            {components[uid]?.displayName ?? uid}
-          </SingleSelectOption>
-        ))}
-      </SingleSelect>
+
+      {picking ? (
+        <Box padding={4} background="neutral0" hasRadius borderColor="neutral200" style={{ borderWidth: 1, borderStyle: 'solid' }}>
+          <Typography variant="pi" fontWeight="bold" tag="div" style={{ marginBottom: '0.5rem' }}>
+            Pick one component
+          </Typography>
+          <Flex gap={2} wrap="wrap">
+            {field.components.map((uid) => (
+              <Button
+                key={uid}
+                variant="tertiary"
+                onClick={() => {
+                  const def = components[uid];
+                  onChange([...items, { __component: uid, ...(def ? emptyValueFor(def.attributes) : {}) }]);
+                  setPicking(false);
+                }}
+              >
+                {components[uid]?.displayName ?? uid}
+              </Button>
+            ))}
+          </Flex>
+        </Box>
+      ) : (
+        <Button variant="secondary" startIcon={<Plus />} onClick={() => setPicking(true)}>
+          Add a component
+        </Button>
+      )}
     </Flex>
   );
 }

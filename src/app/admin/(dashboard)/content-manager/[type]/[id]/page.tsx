@@ -1,7 +1,8 @@
 import { notFound } from 'next/navigation';
-import { allComponents, resolveContentTypeSlug } from '@/lib/content-schema/registry';
+import { allComponents, getContentType, resolveContentTypeSlug, slugForContentType } from '@/lib/content-schema/registry';
 import { findEntityByDocumentId, findSingleType, listEntities } from '@/lib/db/entity-repository';
-import type { ComponentDef, RelationOption } from './AttributeField';
+import { prisma } from '@/lib/db/prisma';
+import type { ComponentDef, MediaLibraryFile, RelationOption } from './AttributeField';
 import EntityForm from './EntityForm';
 
 const LABEL_FIELD_CANDIDATES = ['name', 'label', 'title', 'key'];
@@ -29,10 +30,13 @@ export default async function EntityEditPage({ params }: { params: Promise<{ typ
   const relationOptions: Record<string, RelationOption[]> = {};
   for (const [name, field] of Object.entries(schema.attributes)) {
     if (field.kind !== 'relation') continue;
+    const targetSlug = slugForContentType(getContentType(field.target));
     const targetList = await listEntities(field.target, { pageSize: 200 });
     relationOptions[name] = targetList.data.map((row) => ({
       id: row.id as number,
+      documentId: row.documentId as string,
       label: labelFor(row as Record<string, unknown>),
+      targetSlug,
     }));
   }
 
@@ -40,6 +44,15 @@ export default async function EntityEditPage({ params }: { params: Promise<{ typ
   for (const component of allComponents()) {
     components[component.uid] = { displayName: component.displayName, attributes: component.attributes };
   }
+
+  const mediaFiles = await prisma.files.findMany({ orderBy: { created_at: 'desc' }, take: 200 });
+  const mediaLibrary: MediaLibraryFile[] = mediaFiles.map((f) => ({
+    id: f.id,
+    url: f.url ?? '',
+    name: f.name ?? '',
+    mime: f.mime ?? '',
+    alternativeText: f.alternative_text ?? null,
+  }));
 
   return (
     <EntityForm
@@ -51,6 +64,7 @@ export default async function EntityEditPage({ params }: { params: Promise<{ typ
       entity={entity}
       components={components}
       relationOptions={relationOptions}
+      mediaLibrary={mediaLibrary}
     />
   );
 }

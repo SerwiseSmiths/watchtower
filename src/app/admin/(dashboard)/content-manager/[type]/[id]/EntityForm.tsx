@@ -4,7 +4,7 @@ import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { Box, Button, Field, Flex, Typography } from '@strapi/design-system';
 import type { FieldSchema } from '@/lib/content-schema/types';
-import AttributeField, { type ComponentDef, type RelationOption } from './AttributeField';
+import AttributeField, { type ComponentDef, type MediaLibraryFile, type RelationOption } from './AttributeField';
 import { publishEntityAction, saveEntityAction, unpublishEntityAction } from './actions';
 
 export interface EntityFormProps {
@@ -16,6 +16,7 @@ export interface EntityFormProps {
   entity: Record<string, unknown> | null;
   components: Record<string, ComponentDef>;
   relationOptions: Record<string, RelationOption[]>;
+  mediaLibrary: MediaLibraryFile[];
 }
 
 export default function EntityForm({
@@ -27,6 +28,7 @@ export default function EntityForm({
   entity,
   components,
   relationOptions,
+  mediaLibrary,
 }: EntityFormProps) {
   const router = useRouter();
   const [formData, setFormData] = useState<Record<string, unknown>>(entity ?? {});
@@ -118,6 +120,7 @@ export default function EntityForm({
               onChange={(value) => setFormData((prev) => ({ ...prev, [name]: value }))}
               components={components}
               relationOptions={relationOptions}
+              mediaLibrary={mediaLibrary}
             />
           </Field.Root>
         ))}

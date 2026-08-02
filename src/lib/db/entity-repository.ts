@@ -86,7 +86,9 @@ function shallowScalars(row: Row, attributes: Record<string, FieldSchema>): Row 
     publishedAt: row.published_at,
   };
   for (const [name, field] of Object.entries(attributes)) {
-    if (field.kind === 'scalar') result[name] = row[toColumnName(name)];
+    if (field.kind !== 'scalar') continue;
+    const raw = row[toColumnName(name)];
+    result[name] = field.type === 'decimal' && raw != null ? Number(raw) : raw;
   }
   return result;
 }
@@ -127,9 +129,14 @@ export async function hydrateAttributes(
   };
   for (const [name, field] of Object.entries(attributes)) {
     switch (field.kind) {
-      case 'scalar':
-        hydrated[name] = row[toColumnName(name)];
+      case 'scalar': {
+        const raw = row[toColumnName(name)];
+        // Prisma's `decimal` columns come back as Decimal.js instances, which aren't plain
+        // serializable values (React Flight/RSC rejects them when passed to a Client Component,
+        // unlike JSON.stringify which silently calls toJSON() on them via the REST/GraphQL routes).
+        hydrated[name] = field.type === 'decimal' && raw != null ? Number(raw) : raw;
         break;
+      }
       case 'media':
         hydrated[name] = await hydrateMedia(ownerUid, row.id as number, name, field.multiple);
         break;

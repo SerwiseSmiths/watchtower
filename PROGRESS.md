@@ -158,6 +158,50 @@ console's existing `seed:subscriptions` scripts — not this project's concern.
       (this environment has no browser tool — rendering/logic were verified via curl + direct Server
       Action calls, which is as close as this session could get).
 
+### Phase 3 follow-up — field-type UX rework + closer visual parity
+User feedback after the first pass: media fields showed raw file IDs, relations showed plain
+multi-selects instead of a searchable list linking to the related entry, dynamic zone blocks were
+always expanded with no reordering, and the overall chrome didn't look like Strapi's. Researched
+Strapi's actual admin source (`@strapi/content-manager`/`@strapi/upload` in `console/node_modules` —
+readable, not obfuscated) rather than guess, then reimplemented:
+- [x] **Media fields**: real thumbnail preview (`MediaThumb`) instead of a numeric ID, with a `Modal`-
+      based picker (`MediaPickerModal`) listing existing `files` as a grid — click to select, click the
+      remove icon to clear. **Simplification**: picks from already-uploaded files only; no drag-drop
+      upload/crop flow like Strapi's `UploadAssetDialog` (still needs Cloudinary wiring — see above).
+- [x] **Relations**: `Combobox` (type-to-filter) for adding, selected entries render as a linked list
+      below (`RelationField`) — each row links to `/admin/content-manager/{targetSlug}/{documentId}`
+      (Strapi actually opens an in-context `RelationModal` instead of navigating away; a real page
+      link was the pragmatic choice here) plus a remove button and up/down reorder for multi-relations.
+      **Simplification**: reorder is button-based, not drag-and-drop like Strapi's `useDragAndDrop` —
+      functionally equivalent, far less risk to implement correctly.
+      `relationOptions` now carry `documentId`/`targetSlug` (added in `page.tsx`) so the link can be built.
+- [x] **Dynamic zone + repeatable components**: shared `CollapsibleBlock` (one independent
+      `Accordion.Root` per item — closed by default, matching Strapi's `collapseToOpen` pattern) with
+      move-up/move-down/delete actions in the header (Strapi has both drag-and-drop *and* these buttons;
+      buttons only here). "Add a component" reveals a simple picker of the zone's allowed component
+      types (Strapi's `ComponentPicker`, simplified to a flat button list instead of grouped categories).
+- [x] **Global nav rail**: added `GlobalNavRail.tsx` — the outer icon rail Strapi's real admin has
+      (`@strapi/admin`'s `MainNav`/`NavBrand`/`NavUser`, confirmed via source: white background,
+      border-right, ~4rem wide, top logo, `Content Manager`/`Media Library` icon links, bottom user-
+      avatar menu with sign out) — this was structurally missing before; `DashboardChrome` now composes
+      [rail][content-manager SubNav (shown only under /admin/content-manager)][content].
+- [x] **Font-family bleed fix**: the landing page's `next/font` Outfit class on `<body>` (shared root
+      layout) was outranking the design system's own font via CSS specificity (class beats element
+      selector). Fixed with an inline `font-family` style on `AdminThemeProvider`'s wrapper (inline
+      styles beat classes) restoring Strapi's actual font stack under `/admin` without touching the
+      landing page.
+- [x] **Bug fixes caught during this verification pass**: Prisma `Decimal` columns (e.g. prices) aren't
+      React-Flight-serializable — passing them straight from a Server Component to a Client Component
+      threw/warned (`entity-repository.ts` now coerces `decimal`-typed scalars to `Number` in both
+      `hydrateAttributes` and `shallowScalars`; REST/GraphQL never hit this since `JSON.stringify`
+      silently calls Decimal's `toJSON()`). Also fixed `/admin/media-library` mixing server-only
+      `prisma` access with client-only `@strapi/design-system` components in one file — split into a
+      Server Component (`page.tsx`, data fetching) and Client Component (`MediaLibraryView.tsx`,
+      rendering).
+- Verified all of the above against real data via `next dev` + curl with a hand-signed session cookie:
+  device-type edit (relations combobox+list), page edit (dynamic zone with all 7 block types), and
+  subscription-addon edit (media picker) all render correctly with zero server errors/warnings.
+
 ## Phase 4 — Deploy & cutover
 - [ ] Vercel project config (Prisma + Neon pooled connection)
 - [ ] Final parity smoke test against real Neon-migrated data
