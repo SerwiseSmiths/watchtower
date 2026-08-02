@@ -225,7 +225,37 @@ readable, not obfuscated) rather than guess, then reimplemented:
   subscription-addon edit (media picker) all render correctly with zero server errors/warnings.
 
 ## Phase 4 — Deploy & cutover
-- [ ] Vercel project config (Prisma + Neon pooled connection)
+- [x] Prisma config for Vercel's runtime: added `binaryTargets = ["native", "rhel-openssl-3.0.x"]` to
+      the generator block (Vercel's serverless Node.js functions run on Amazon Linux/glibc, not
+      Windows — without this only the local dev engine gets bundled). Added `"postinstall": "prisma
+      generate"` to `package.json` so the client regenerates automatically on every install (Vercel
+      runs `install` then `build`; without this the build would use a stale/missing client). Confirmed
+      `fix-prisma-schema.js` only rewrites `model` blocks, so this survives future `prisma:pull` runs.
+- [x] Two Vercel projects under the `devops-serwises-projects` team, mirroring nexus's existing
+      convention (separate project per environment, not one project with branch-based Preview/Prod):
+      `watchtower` (prod) and `watchtower-dev`. Each has its own distinct `ADMIN_JWT_SECRET` and
+      `API_TOKEN_SALT` (generated fresh, never shared between environments or with local dev values)
+      plus `CLOUDINARY_NAME`/`CLOUDINARY_KEY`/`CLOUDINARY_SECRET` copied from console's existing
+      account (same account, per the locked media-storage decision) — all set on the Production
+      environment of each project via `vercel env add`.
+      Both deployed successfully (`vercel deploy`) and respond (200) at their default `.vercel.app`
+      URLs: `watchtower-gules.vercel.app` (prod project) and `watchtower-dev-five.vercel.app` (dev
+      project) — confirms the build pipeline works even with no `DATABASE_URL` set yet, since every
+      DB-touching route is dynamic (`ƒ`), not statically prerendered.
+- [ ] **Blocked on user**: `DATABASE_URL`/`DIRECT_URL` for both environments — needs the Neon
+      migration first (user is setting this up and will provide connection strings). Until set, any
+      request that touches the DB (everything except `/` and `/admin/login`'s initial render) will 500.
+- [ ] **Blocked on user (or a Pro-plan upgrade)**: custom domains (`watchtower.serwise.co.in`,
+      `watchtower.dev.serwise.co.in`). `vercel domains add` failed with `domain_not_owned` — Vercel
+      needs to verify DNS control over `serwise.co.in` at the team level, which nexus's setup may have
+      only granted access to nexus's own project rather than the team overall (nexus.serwise.co.in
+      already works). This needs the user's action in the Vercel dashboard, not something fixable via
+      the CLI without more domain-verification access than this session has.
+- [ ] **Note**: GitHub auto-deploy integration failed — "the repository is private and owned by an
+      organization, which is not supported on the Hobby plan." nexus's projects show the same
+      constraint (their env vars didn't hint at git integration either), so deploys for this whole team
+      are apparently already CLI-triggered (`vercel deploy` / `vercel deploy --prod`), not push-to-deploy.
+      Confirmed working that way for watchtower too — just needs someone (or a CI step) to run it.
 - [ ] Final parity smoke test against real Neon-migrated data
 - [ ] Repoint STRAPI_URL/CMS_URL/NEXT_PUBLIC_CMS_URL/API tokens in nexus, serwise, serwise-website
       (big-bang cutover — requires explicit confirmation before executing)

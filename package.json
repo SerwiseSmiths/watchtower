@@ -7,6 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
+    "postinstall": "prisma generate",
     "prisma:pull": "prisma db pull && node scripts/fix-prisma-schema.js && prisma generate",
     "prisma:generate": "prisma generate"
   },
