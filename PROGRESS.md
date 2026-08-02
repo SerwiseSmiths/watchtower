@@ -112,10 +112,32 @@ console's existing `seed:subscriptions` scripts — not this project's concern.
       `ComponentBlocksServices.rows.deviceTypes`), `complaintPage`, `globalConfig`, `bottomTab`,
       `welcomeBonus` (correctly `null` — table has no rows yet), and unauthenticated-request rejection.
       All matched exactly.
-- [ ] Parity gate: diff console vs. watchtower responses for every real call site — deferred until a
-      real Strapi instance can be run side-by-side (not available in this dev environment); everything
-      above was instead verified by matching the *literal query strings* consumers already send against
-      real dev-DB data, which is the practical equivalent for the queries that exist today.
+- [x] Parity gate: ran console's real Strapi (`npx strapi develop`, port 1337) side-by-side with
+      watchtower (port 3001 — port 3000 turned out to be held by a live nexus process, unrelated to
+      this app; picked an explicit different port rather than touch it) against the same local DB,
+      diffing real responses for nexus's exact call shapes.
+      **Found and fixed a real bug this way**: `listEntities`/`findSingleType` had no default status
+      filter, so a draftAndPublish type's list endpoint returned BOTH the draft and published row per
+      document (double-counted) when callers didn't pass `status` — which is exactly how nexus calls
+      it. `statusWhere` in `entity-repository.ts` now defaults to published-only when `status` is
+      unspecified (matching Strapi's real default), with admin-panel callers (editing, relation
+      pickers, the list view) explicitly passing `status: 'draft'` to keep seeing draft content.
+      The admin list view itself had the same symptom (duplicate draft+published rows per document);
+      fixed by always querying drafts there (one row per document) and adding
+      `getPublishedDocumentIds()` to compute the real Published/Draft badge from a lightweight
+      follow-up query, since a draft row's own `publishedAt` is always null.
+      After the fix: `GET /api/subscription-plans` (no status param) and
+      `GET /api/service-parts?filters[visibility][$eq]=ACTIVE&status=published` (nexus's literal
+      query) return identical ids/keys/fields/order against both instances; `deviceTypes` GraphQL
+      query returns the same 5 records (order differs — not currently relied on by any consumer).
+      **Also surfaced, not a watchtower bug**: console's locally-run Strapi shows `publishedAt`
+      shifted by -5:30 vs. watchtower's for the same row. Root cause confirmed via raw SQL
+      (`published_at::text` with session forced to UTC): the true stored value matches watchtower's
+      output exactly; the local dev Postgres instance's session timezone happens to be `Asia/Calcutta`,
+      and Strapi's knex-based reads apply that offset when serializing to ISO, while Prisma treats the
+      naive `timestamp` column as UTC (no conversion) — the more common convention, and what Neon
+      (UTC by default) will do too. This is an artifact of this one dev machine's local Postgres
+      timezone config, not a real prod-parity gap; no code change made.
 
 ## Phase 3 — Admin panel (`/admin`) — DONE (core flows)
 - [x] Confirmed `@strapi/design-system` v2.2.3 actually renders under React 19 / Next 16 despite its
@@ -208,6 +230,16 @@ readable, not obfuscated) rather than guess, then reimplemented:
 - [ ] Repoint STRAPI_URL/CMS_URL/NEXT_PUBLIC_CMS_URL/API tokens in nexus, serwise, serwise-website
       (big-bang cutover — requires explicit confirmation before executing)
 - [ ] Decommission console
+
+## Dev-environment gotcha (local machine, not a code bug)
+This machine accumulates orphaned `node.exe` processes across sessions (found several dating back to
+the previous day still running). These can grab port 3000/3001/etc. out from under a freshly-started
+`next dev`, or starve its Turbopack workers enough to crash them ("Jest worker encountered N child
+process exceptions"), producing confusing 404s/500s that look like real bugs but aren't. Also: nexus's
+own dev server apparently defaults to port 3000 too (no `PORT` in its `.env`), so it can collide with
+Next's default port. If `next dev` misbehaves and a plain restart doesn't fix it: check
+`Get-Process node | Select Id,StartTime` for stale processes, kill them, delete `.next`, and pick an
+explicit `-p` port if 3000 is already claimed by something else.
 
 ---
 *Last updated: Phase 0 in progress.*

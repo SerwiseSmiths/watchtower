@@ -164,11 +164,17 @@ export interface ListOptions {
   fields?: string[];
 }
 
+/**
+ * Matches Strapi's real REST/GraphQL default: when `status` isn't explicitly given, only published
+ * content is served. Admin-panel callers that need to see drafts (editing, relation pickers, the
+ * document-aware list view) must pass `status: 'draft'` explicitly — otherwise, for a draftAndPublish
+ * type that has both a draft and a published row per document, an unspecified status used to return
+ * BOTH rows (double-counted, and leaking unpublished drafts to public API consumers).
+ */
 function statusWhere(schema: ContentTypeSchema, status?: 'draft' | 'published') {
   if (!schema.draftAndPublish) return {};
   if (status === 'draft') return { published_at: null };
-  if (status === 'published') return { published_at: { not: null } };
-  return {};
+  return { published_at: { not: null } };
 }
 
 /** Restricts the hydrated result to `id`/`documentId` plus the requested scalar attribute names. */
@@ -204,6 +210,20 @@ export async function listEntities(contentTypeUid: string, options: ListOptions 
     data,
     meta: { pagination: { page, pageSize, pageCount: Math.max(1, Math.ceil(total / pageSize)), total } },
   };
+}
+
+/**
+ * For the admin list view: given a page of draft rows' documentIds, returns the subset that also
+ * have a published sibling row — used to render an accurate Published/Draft badge without querying
+ * per-row. Only meaningful for draftAndPublish content types.
+ */
+export async function getPublishedDocumentIds(contentTypeUid: string, documentIds: string[]): Promise<Set<string>> {
+  if (documentIds.length === 0) return new Set();
+  const schema = getContentType(contentTypeUid);
+  const rows = await model(schema.collectionName).findMany({
+    where: { document_id: { in: documentIds }, published_at: { not: null } },
+  });
+  return new Set(rows.map((r) => r.document_id as string));
 }
 
 export async function findEntity(contentTypeUid: string, id: number, options: { status?: 'draft' | 'published' } = {}) {

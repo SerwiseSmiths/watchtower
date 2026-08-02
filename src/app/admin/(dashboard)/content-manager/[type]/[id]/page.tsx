@@ -30,8 +30,12 @@ export default async function EntityEditPage({ params }: { params: Promise<{ typ
   const relationOptions: Record<string, RelationOption[]> = {};
   for (const [name, field] of Object.entries(schema.attributes)) {
     if (field.kind !== 'relation') continue;
-    const targetSlug = slugForContentType(getContentType(field.target));
-    const targetList = await listEntities(field.target, { pageSize: 200 });
+    const targetSchema = getContentType(field.target);
+    const targetSlug = slugForContentType(targetSchema);
+    // Query drafts explicitly so a draftAndPublish relation target never offers duplicate
+    // draft+published options for the same document (none of today's relation targets are
+    // draftAndPublish, but this keeps the picker correct if that ever changes).
+    const targetList = await listEntities(field.target, { pageSize: 200, status: targetSchema.draftAndPublish ? 'draft' : undefined });
     relationOptions[name] = targetList.data.map((row) => ({
       id: row.id as number,
       documentId: row.documentId as string,
