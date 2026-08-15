@@ -10,6 +10,11 @@ locked decisions, verification approach). This file tracks execution status only
 Landing page at `/` is untouched and out of scope — all CMS work lives under `/admin` (panel)
 and `/api`, `/graphql` (API surface).
 
+**Superseded (see "Root login" section below):** `/` no longer hosts the marketing landing page.
+It's now a phone+OTP+WebAuthn-passkey login gating a details page, with device pre-approval
+managed from a new `/admin/operators` screen. All CMS work still lives under `/admin` and
+`/api`/`/graphql` as before — this only replaces what `/` itself renders.
+
 ## Phase 0 — Foundations — DONE
 - [x] Commit existing staged landing-page changes untouched
 - [x] Create this progress tracker
@@ -270,6 +275,48 @@ own dev server apparently defaults to port 3000 too (no `PORT` in its `.env`), s
 Next's default port. If `next dev` misbehaves and a plain restart doesn't fix it: check
 `Get-Process node | Select Id,StartTime` for stale processes, kill them, delete `.next`, and pick an
 explicit `-p` port if 3000 is already claimed by something else.
+
+## Root login (`/`) — phone+OTP+passkey — DONE
+Replaces the old marketing landing page. `/` is now: login form for unauthenticated visitors,
+placeholder details/dashboard page for authenticated ones. Deliberately separate from `/admin`'s
+email+password session — an `/admin` login never unlocks `/`, since that would bypass the
+compulsory 2FA here.
+
+- [x] 3 new tables (`watchtower_root_operators`, `watchtower_passkey_enrollments`,
+      `watchtower_webauthn_credentials`, `watchtower_otp_codes` — 4 total), added via
+      `prisma/manual-migrations/0001_watchtower_root_login.sql` (idempotent, re-runnable against
+      Neon later). No existing Strapi-owned table/column changed — being present in
+      `watchtower_root_operators` **is** the "admin role" gate for root login, keyed to an
+      existing `admin_users` row.
+- [x] `src/lib/auth/{root-session,hanuotp,otp,operators,webauthn,enrollment}.ts` — OTP logic
+      ported from nexus's `AuthService`/`hanuotp.service.ts` (same `HANUOTP_API_KEY`/
+      `HANUOTP_TEMPLATE_SID` env vars, same provider account), WebAuthn via
+      `@simplewebauthn/server`, two separate JWT cookies (`watchtower_root_pending` short-lived
+      post-OTP, `watchtower_root_session` full session — both signed with a new `ROOT_JWT_SECRET`,
+      distinct from `/admin`'s `ADMIN_JWT_SECRET`).
+- [x] Login flow at `/` (`src/app/root/{LoginForm,DetailsPage,actions}.tsx/ts`): phone → OTP →
+      WebAuthn assertion (auto-triggered), all three compulsory. An operator with zero registered
+      passkeys is stopped with a message rather than allowed to bootstrap one at the login screen —
+      passkeys can only be registered via a pre-approved enrollment link (see below).
+- [x] `/enroll/[token]` (`src/app/enroll/[token]/*`) — single-use, 15-minute enrollment link;
+      completes a real WebAuthn registration ceremony for the device that opens it.
+- [x] `/admin/operators` (`src/app/admin/(dashboard)/operators/*`) — new screen (existing
+      email+password `/admin` session required) to link a phone number to an `admin_users` row,
+      generate enrollment links, and revoke passkeys. Added to `GlobalNavRail.tsx`.
+- [x] Verified via `scripts/verify-root-login.ts` (20 checks, self-cleaning: disposable
+      `admin_users`/operator/OTP/enrollment/credential rows, confirmed zero leftover rows
+      afterward) — operator gating (unknown/inactive numbers rejected), OTP verify/reuse/attempts
+      logic, JWT round-trips (pending vs. session tokens are not interchangeable), full enrollment
+      token lifecycle (valid/used/expired/unknown), WebAuthn option-builder shape (RP ID,
+      exclude/allow credential lists) and credential revoke. Manually smoke-tested with `next dev`:
+      `/` renders the login form logged-out (200), `/admin` redirects to login (307),
+      `/enroll/<bogus-token>` shows the invalid-link message.
+      **Known simplification**: the verify script does not run a real cryptographic WebAuthn
+      ceremony (no virtual-authenticator helper is exported by the installed
+      `@simplewebauthn/server` version) — the actual passkey registration/authentication ceremony
+      needs a manual pass in a real browser with a platform authenticator (Windows Hello/Touch ID),
+      not yet done in this environment (no browser tool available here, same limitation noted for
+      the `/admin` panel above).
 
 ---
 *Last updated: Phase 0 in progress.*
