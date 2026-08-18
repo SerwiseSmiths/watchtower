@@ -25,8 +25,13 @@ export default function EnrollForm({ token }: { token: string }) {
       }
       setDone(true);
       setTimeout(() => router.push('/'), 1500);
-    } catch {
-      setError('Passkey registration was cancelled or failed on this device');
+    } catch (err) {
+      // eslint-disable-next-line no-console
+      console.error('[Passkey enrollment] registration failed:', err);
+      const message = err instanceof Error && err.message
+        ? err.message
+        : 'Passkey registration was cancelled or failed on this device';
+      setError(message);
     } finally {
       setBusy(false);
     }
