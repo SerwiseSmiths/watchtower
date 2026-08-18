@@ -3,7 +3,7 @@
 import NextLink from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Avatar, Box, Flex, IconButton, MenuItem, SimpleMenu, Tooltip, Typography } from '@strapi/design-system';
-import { Stack, Image, Key } from '@strapi/icons';
+import { Stack, Image, Key, User } from '@strapi/icons';
 import { logoutAction } from '../login/actions';
 
 const NAV_WIDTH = '5.6rem';
@@ -75,6 +75,9 @@ export default function GlobalNavRail({ userInitials }: { userInitials: string }
         </NavIconLink>
         <NavIconLink href="/admin/operators" label="Operators" active={pathname?.startsWith('/admin/operators') ?? false}>
           <Key width="2rem" height="2rem" fill={pathname?.startsWith('/admin/operators') ? 'primary600' : 'neutral500'} />
+        </NavIconLink>
+        <NavIconLink href="/admin/users" label="Users" active={pathname?.startsWith('/admin/users') ?? false}>
+          <User width="2rem" height="2rem" fill={pathname?.startsWith('/admin/users') ? 'primary600' : 'neutral500'} />
         </NavIconLink>
       </Flex>
 
