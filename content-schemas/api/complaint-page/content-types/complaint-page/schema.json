@@ -1,0 +1,31 @@
+{
+  "kind": "singleType",
+  "collectionName": "complaint_pages",
+  "info": {
+    "singularName": "complaint-page",
+    "pluralName": "complaint-pages",
+    "displayName": "Complaint Page",
+    "description": "Configures content shown on the complaint detail screen in the Serwise app"
+  },
+  "options": {
+    "draftAndPublish": false
+  },
+  "pluginOptions": {},
+  "attributes": {
+    "advertisement": {
+      "type": "component",
+      "repeatable": false,
+      "component": "blocks.advertisement"
+    },
+    "resolutionSteps": {
+      "type": "component",
+      "repeatable": true,
+      "component": "complaint.resolution-step"
+    },
+    "infoBlocks": {
+      "type": "component",
+      "repeatable": true,
+      "component": "complaint.info-block"
+    }
+  }
+}

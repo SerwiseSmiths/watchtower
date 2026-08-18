@@ -1,0 +1,21 @@
+{
+  "kind": "singleType",
+  "collectionName": "bottom_tabs",
+  "info": {
+    "singularName": "bottom-tab",
+    "pluralName": "bottom-tabs",
+    "displayName": "Bottom Tab",
+    "description": "Bottom navigation bar configuration — tabs ordered as they appear left to right"
+  },
+  "options": {
+    "draftAndPublish": false
+  },
+  "pluginOptions": {},
+  "attributes": {
+    "tabs": {
+      "type": "component",
+      "repeatable": true,
+      "component": "shared.tab-item"
+    }
+  }
+}

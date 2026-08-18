@@ -1,0 +1,25 @@
+{
+  "collectionName": "components_subscription_visit_services",
+  "info": {
+    "displayName": "Visit Service",
+    "icon": "tool",
+    "description": "Services included in a specific visit number within a subscription plan"
+  },
+  "options": {},
+  "attributes": {
+    "visit_number": {
+      "type": "integer",
+      "required": true,
+      "min": 1
+    },
+    "label": {
+      "type": "string",
+      "required": true
+    },
+    "service_parts": {
+      "type": "relation",
+      "relation": "oneToMany",
+      "target": "api::service-part.service-part"
+    }
+  }
+}

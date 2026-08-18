@@ -1,0 +1,73 @@
+{
+  "kind": "collectionType",
+  "collectionName": "service_parts",
+  "info": {
+    "singularName": "service-part",
+    "pluralName": "service-parts",
+    "displayName": "Service Part"
+  },
+  "options": {
+    "draftAndPublish": true
+  },
+  "pluginOptions": {},
+  "attributes": {
+    "name": {
+      "type": "string",
+      "required": true,
+      "unique": true
+    },
+    "category": {
+      "type": "enumeration",
+      "required": true,
+      "enum": [
+        "Basic Filters",
+        "Additional Filters",
+        "Electrical Components",
+        "Other Items",
+        "Pipe & Fittings",
+        "Core"
+      ]
+    },
+    "type": {
+      "type": "enumeration",
+      "required": true,
+      "enum": [
+        "Parts",
+        "Repair",
+        "Service"
+      ]
+    },
+    "face_value": {
+      "type": "decimal",
+      "required": true,
+      "min": 0
+    },
+    "provider_cut": {
+      "type": "decimal",
+      "min": 0
+    },
+    "expense": {
+      "type": "decimal",
+      "min": 0
+    },
+    "description": {
+      "type": "text"
+    },
+    "visibility": {
+      "type": "enumeration",
+      "required": true,
+      "default": "ACTIVE",
+      "enum": [
+        "ACTIVE",
+        "DRAFT",
+        "DISCONTINUED"
+      ]
+    },
+    "device_types": {
+      "type": "relation",
+      "relation": "manyToMany",
+      "target": "api::device-type.device-type",
+      "inversedBy": "service_parts"
+    }
+  }
+}

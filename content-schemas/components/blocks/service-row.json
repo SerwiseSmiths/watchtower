@@ -1,0 +1,16 @@
+{
+  "collectionName": "components_blocks_service_rows",
+  "info": {
+    "displayName": "Service Row",
+    "icon": "apps",
+    "description": "A single horizontal row of device-type service cards"
+  },
+  "options": {},
+  "attributes": {
+    "deviceTypes": {
+      "type": "relation",
+      "relation": "manyToMany",
+      "target": "api::device-type.device-type"
+    }
+  }
+}

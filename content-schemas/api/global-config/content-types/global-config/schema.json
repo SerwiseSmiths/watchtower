@@ -1,0 +1,21 @@
+{
+  "kind": "singleType",
+  "collectionName": "global_configs",
+  "info": {
+    "singularName": "global-config",
+    "pluralName": "global-configs",
+    "displayName": "Global Config",
+    "description": "Key-value pairs for global app configuration (e.g. referral_reward_amount)"
+  },
+  "options": {
+    "draftAndPublish": false
+  },
+  "pluginOptions": {},
+  "attributes": {
+    "entries": {
+      "type": "component",
+      "repeatable": true,
+      "component": "shared.config-entry"
+    }
+  }
+}

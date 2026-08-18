@@ -1,0 +1,30 @@
+{
+  "collectionName": "components_blocks_invite_earns",
+  "info": {
+    "displayName": "Invite Earn",
+    "icon": "gift",
+    "description": "Invite & Earn card shown in the wallet modal"
+  },
+  "options": {},
+  "attributes": {
+    "heading": {
+      "type": "string",
+      "required": true,
+      "default": "Invite & Earn"
+    },
+    "body": {
+      "type": "text",
+      "default": "Earn up to ₹{amount} for each friend you invite."
+    },
+    "giftIcon": {
+      "type": "media",
+      "multiple": false,
+      "required": false,
+      "allowedTypes": ["images", "files", "videos"]
+    },
+    "isDismissible": {
+      "type": "boolean",
+      "default": true
+    }
+  }
+}

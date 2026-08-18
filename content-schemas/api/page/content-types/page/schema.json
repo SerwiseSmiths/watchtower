@@ -1,0 +1,38 @@
+{
+  "kind": "collectionType",
+  "collectionName": "pages",
+  "info": {
+    "singularName": "page",
+    "pluralName": "pages",
+    "displayName": "Page",
+    "description": "CMS-driven pages with ordered dynamic block zones"
+  },
+  "options": {
+    "draftAndPublish": true
+  },
+  "pluginOptions": {},
+  "attributes": {
+    "title": {
+      "type": "string",
+      "required": true
+    },
+    "handle": {
+      "type": "uid",
+      "targetField": "title",
+      "required": true
+    },
+    "blocks": {
+      "type": "dynamiczone",
+      "components": [
+        "blocks.advertisement",
+        "blocks.wallet",
+        "blocks.hero-grid",
+        "blocks.services",
+        "blocks.whats-new",
+        "blocks.invite-earn",
+        "blocks.transactions"
+      ],
+      "required": false
+    }
+  }
+}

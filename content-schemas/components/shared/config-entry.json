@@ -1,0 +1,19 @@
+{
+  "collectionName": "components_shared_config_entries",
+  "info": {
+    "displayName": "Config Entry",
+    "icon": "cog",
+    "description": "Key-value pair for global configuration"
+  },
+  "options": {},
+  "attributes": {
+    "key": {
+      "type": "string",
+      "required": true
+    },
+    "value": {
+      "type": "string",
+      "required": true
+    }
+  }
+}

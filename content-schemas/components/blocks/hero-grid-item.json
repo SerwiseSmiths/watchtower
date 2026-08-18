@@ -1,0 +1,26 @@
+{
+  "collectionName": "components_blocks_hero_grid_items",
+  "info": {
+    "displayName": "Hero Grid Item",
+    "icon": "layout",
+    "description": "A single card in the hero grid. variant controls visual style; active condition and count are resolved on the frontend."
+  },
+  "options": {},
+  "attributes": {
+    "key": {
+      "type": "enumeration",
+      "enum": ["MY_PLANS", "ADDRESSES", "ORDERS_HISTORY", "APPLIANCES"],
+      "required": true
+    },
+    "label": {
+      "type": "string",
+      "required": true
+    },
+    "variant": {
+      "type": "enumeration",
+      "enum": ["COUNT", "ACTIVE_COUNT", "ACTIVE_PLAN"],
+      "default": "COUNT",
+      "required": true
+    }
+  }
+}

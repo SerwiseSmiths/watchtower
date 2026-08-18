@@ -1,0 +1,72 @@
+{
+  "kind": "collectionType",
+  "collectionName": "subscription_plans",
+  "info": {
+    "singularName": "subscription-plan",
+    "pluralName": "subscription-plans",
+    "displayName": "Subscription Plan"
+  },
+  "options": {
+    "draftAndPublish": true
+  },
+  "pluginOptions": {},
+  "attributes": {
+    "key": {
+      "type": "string",
+      "required": true,
+      "unique": true
+    },
+    "name": {
+      "type": "string",
+      "required": true
+    },
+    "badge": {
+      "type": "string"
+    },
+    "badge_color": {
+      "type": "string"
+    },
+    "annual_price": {
+      "type": "decimal",
+      "required": true,
+      "min": 0
+    },
+    "monthly_price": {
+      "type": "decimal",
+      "required": true,
+      "min": 0
+    },
+    "tagline": {
+      "type": "string"
+    },
+    "max_services": {
+      "type": "integer",
+      "required": true,
+      "default": 4,
+      "min": -1
+    },
+    "duration_months": {
+      "type": "integer",
+      "required": true,
+      "default": 12
+    },
+    "sort_order": {
+      "type": "integer",
+      "default": 0
+    },
+    "is_active": {
+      "type": "boolean",
+      "default": true
+    },
+    "visit_services": {
+      "type": "component",
+      "repeatable": true,
+      "component": "subscription.visit-service"
+    },
+    "features": {
+      "type": "component",
+      "repeatable": true,
+      "component": "subscription.plan-feature"
+    }
+  }
+}

@@ -1,0 +1,23 @@
+{
+  "collectionName": "components_blocks_whats_news",
+  "info": {
+    "displayName": "Whats New",
+    "icon": "newspaper",
+    "description": "Image carousel section. Add slides in the order you want them displayed."
+  },
+  "options": {},
+  "attributes": {
+    "heading": {
+      "type": "string",
+      "default": "What's New?",
+      "required": true
+    },
+    "items": {
+      "type": "component",
+      "repeatable": true,
+      "component": "blocks.whats-new-item",
+      "required": true,
+      "min": 1
+    }
+  }
+}
