@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState, useTransition, type CSSProperties } from 'react';
 import { dmSans } from './fonts';
+import RootSidebar from '@/components/RootSidebar';
 import type { Ticket, TicketStatus } from './mapComplaint';
 import { bypassEntrance } from './actions';
 import { FilterIcon, ChevronRightIcon, RaisedIcon, InWarrantyIcon, InProgressIcon, CancelledIcon, CompletedIcon } from './icons';
@@ -195,7 +196,7 @@ export default function TicketsView({ tickets }: { tickets: Ticket[] }) {
 
   return (
     <div className={dmSans.className} style={{ minHeight: '100vh', background: '#F2F2F2', display: 'flex' }}>
-      <aside style={{ width: 214, background: '#FFFFFF', flexShrink: 0 }} />
+      <RootSidebar />
 
       <main className="flex-grow-1" style={{ padding: '44px 40px' }}>
         <h1 className="mb-3" style={{ fontSize: 28, fontWeight: 700, letterSpacing: '-0.03em', color: '#181818' }}>

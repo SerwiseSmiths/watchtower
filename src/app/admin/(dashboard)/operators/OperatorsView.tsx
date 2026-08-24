@@ -28,6 +28,7 @@ import {
   searchAdminUsersAction,
   toggleOperatorActiveAction,
 } from './actions';
+import PageHeader from '../PageHeader';
 
 interface Credential {
   id: number;
@@ -87,19 +88,15 @@ export default function OperatorsView({ operators }: { operators: Operator[] }) 
 
   return (
     <Box>
-      <Flex justifyContent="space-between" alignItems="flex-start" paddingBottom={4}>
-        <Box>
-          <Typography variant="alpha" tag="h1">
-            Operators
-          </Typography>
-          <Typography textColor="neutral600">
-            Accounts authorized to sign in at the root (`/`) phone+OTP+passkey login.
-          </Typography>
-        </Box>
-        <Button startIcon={<Plus />} onClick={() => setAddOpen(true)}>
-          Add operator
-        </Button>
-      </Flex>
+      <PageHeader
+        title="Operators"
+        subtitle="Accounts authorized to sign in at the root (`/`) phone+OTP+passkey login."
+        primaryAction={
+          <Button startIcon={<Plus />} onClick={() => setAddOpen(true)}>
+            Add operator
+          </Button>
+        }
+      />
 
       <Table colCount={5} rowCount={operators.length + 1}>
         <Thead>

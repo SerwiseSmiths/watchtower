@@ -93,6 +93,15 @@ function shallowScalars(row: Row, attributes: Record<string, FieldSchema>): Row 
   return result;
 }
 
+/** Reverse-looks-up which owner rows are linked to a given target id — used by the list view's
+ * relation filter ("device type is X") without needing a real Prisma relation defined on the
+ * hand-curated `_lnk` tables. */
+export async function findOwnerIdsByRelationTarget(ownerUid: string, fieldName: string, targetId: number): Promise<number[]> {
+  const map = getRelationTable(ownerUid, fieldName);
+  const links = await model(map.table).findMany({ where: { [map.targetColumn]: targetId } });
+  return links.map((l) => l[map.ownerColumn] as number | null).filter((id): id is number => id != null);
+}
+
 async function hydrateRelation(ownerUid: string, ownerId: number, fieldName: string, targetUid: string) {
   const map = getRelationTable(ownerUid, fieldName);
   const orderBy = map.targetOrderColumn ? { orderBy: { [map.targetOrderColumn]: 'asc' } } : {};
@@ -152,6 +161,33 @@ export async function hydrateAttributes(
     }
   }
   return hydrated;
+}
+
+function adminUserLabel(user: Row | undefined): string | null {
+  if (!user) return null;
+  const name = `${user.firstname ?? ''} ${user.lastname ?? ''}`.trim();
+  return name || (user.email as string | undefined) || null;
+}
+
+/** Resolves the `created_by_id`/`updated_by_id` columns (present on every content-type/component
+ * table but deliberately left out of `hydrateAttributes`'s business-shape output) into admin display
+ * names, for the edit view's "Information" sidebar panel. */
+export async function getEntityAuthorNames(
+  collectionName: string,
+  id: number,
+): Promise<{ createdBy: string | null; updatedBy: string | null }> {
+  const row = await model(collectionName).findUnique({ where: { id } });
+  const createdById = row?.created_by_id as number | null | undefined;
+  const updatedById = row?.updated_by_id as number | null | undefined;
+  const ids = [createdById, updatedById].filter((v): v is number => typeof v === 'number');
+  if (ids.length === 0) return { createdBy: null, updatedBy: null };
+
+  const users = await model('admin_users').findMany({ where: { id: { in: ids } } });
+  const usersById = new Map(users.map((u) => [u.id as number, u]));
+  return {
+    createdBy: createdById != null ? adminUserLabel(usersById.get(createdById)) : null,
+    updatedBy: updatedById != null ? adminUserLabel(usersById.get(updatedById)) : null,
+  };
 }
 
 export interface ListOptions {
@@ -449,6 +485,53 @@ export async function updateEntity(contentTypeUid: string, id: number, data: Row
   await model(schema.collectionName).update({ where: { id }, data: { ...scalarData, updated_at: new Date() } });
   await writeNestedFields(schema.uid, schema.collectionName, id, schema.attributes, data);
   return findEntity(contentTypeUid, id);
+}
+
+/** Finds which scalar attribute owns a Prisma unique-constraint violation's target column, so the
+ * caller can report something like `"slug" must be unique` instead of a raw Postgres error. */
+function uniqueViolationField(schema: ContentTypeSchema, err: unknown): string | null {
+  if (typeof err !== 'object' || err === null || (err as { code?: string }).code !== 'P2002') return null;
+  const target = (err as { meta?: { target?: string[] | string } }).meta?.target;
+  const columns = Array.isArray(target) ? target : typeof target === 'string' ? [target] : [];
+  for (const [name, field] of Object.entries(schema.attributes)) {
+    if (field.kind === 'scalar' && columns.includes(toColumnName(name))) return name;
+  }
+  return null;
+}
+
+/**
+ * Clones a document's draft into a brand-new document (fresh `document_id`, always created as a
+ * draft even for draftAndPublish types — matching Strapi's own "Duplicate" action). Proactively
+ * dodges the most common unique-constraint collisions (uid fields, `unique: true` scalars) the way
+ * Strapi's real duplicate flow does; if a collision still slips through, throws a message naming the
+ * offending field instead of a raw Postgres error, for the caller to surface as a failure dialog.
+ */
+export async function duplicateEntity(contentTypeUid: string, documentId: string) {
+  const schema = getContentType(contentTypeUid);
+  const source = await findEntityByDocumentId(contentTypeUid, documentId, { status: 'draft' });
+  if (!source) throw new Error('Entity not found');
+
+  const clone: Row = { ...source };
+  delete clone.id;
+  delete clone.documentId;
+  delete clone.createdAt;
+  delete clone.updatedAt;
+  delete clone.publishedAt;
+
+  const suffix = generateDocumentId(6);
+  for (const [name, field] of Object.entries(schema.attributes)) {
+    if (field.kind !== 'scalar' || typeof clone[name] !== 'string') continue;
+    if (field.type === 'uid') clone[name] = `${clone[name]}-copy-${suffix}`;
+    else if (field.unique) clone[name] = `${clone[name]} (copy)`;
+  }
+
+  try {
+    return await createEntity(contentTypeUid, clone);
+  } catch (err) {
+    const conflictField = uniqueViolationField(schema, err);
+    if (conflictField) throw new Error(`Could not duplicate this entry: the "${conflictField}" field must be unique.`);
+    throw err;
+  }
 }
 
 export async function deleteEntity(contentTypeUid: string, id: number) {

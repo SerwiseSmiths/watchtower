@@ -21,6 +21,8 @@ function signAdminServiceToken(): string {
 }
 
 export async function nexusFetch(path: string, init: RequestInit = {}): Promise<Response> {
+  console.log(getNexusApiUrl());
+  
   const res = await fetch(`${getNexusApiUrl()}${path}`, {
     ...init,
     headers: {

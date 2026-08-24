@@ -4,6 +4,8 @@ import { revalidatePath } from 'next/cache';
 import { resolveContentTypeSlug } from '@/lib/content-schema/registry';
 import {
   createEntity,
+  deleteEntity,
+  duplicateEntity,
   findEntityByDocumentId,
   findSingleType,
   publishEntity,
@@ -50,4 +52,22 @@ export async function unpublishEntityAction(slug: string, id: string) {
   if (existingId == null) throw new Error('Entity not found');
   await unpublishEntity(schema.uid, existingId);
   revalidatePath(`/admin/content-manager/${slug}/${schema.kind === 'singleType' ? 'edit' : id}`);
+}
+
+export async function deleteEntityAction(slug: string, id: string) {
+  const schema = resolveContentTypeSlug(slug);
+  if (!schema) throw new Error('Unknown content type');
+  const existingId = await resolveExistingId(slug, id);
+  if (existingId == null) throw new Error('Entity not found');
+  await deleteEntity(schema.uid, existingId);
+  revalidatePath(`/admin/content-manager/${slug}`);
+}
+
+/** Only meaningful for collectionType entries — singleTypes have exactly one logical entity. */
+export async function duplicateEntityAction(slug: string, documentId: string) {
+  const schema = resolveContentTypeSlug(slug);
+  if (!schema) throw new Error('Unknown content type');
+  const duplicated = await duplicateEntity(schema.uid, documentId);
+  revalidatePath(`/admin/content-manager/${slug}`);
+  return { documentId: duplicated!.documentId as string };
 }
