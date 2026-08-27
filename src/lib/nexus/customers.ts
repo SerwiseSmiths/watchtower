@@ -58,6 +58,23 @@ export async function fetchCustomer(id: string): Promise<NexusCustomerDetail> {
   return body.data.customer as NexusCustomerDetail;
 }
 
+export interface CreateCustomerInput {
+  firstName: string;
+  lastName: string;
+  phoneNo: string;
+  email?: string;
+}
+
+export async function createCustomer(input: CreateCustomerInput): Promise<NexusCustomerDetail> {
+  const res = await nexusFetch('/user/customers', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(input),
+  });
+  const body = await res.json();
+  return body.data.customer as NexusCustomerDetail;
+}
+
 export interface UpdateCustomerInput {
   firstName?: string;
   lastName?: string;

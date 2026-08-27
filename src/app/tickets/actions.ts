@@ -1,7 +1,7 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
-import { setComplaintStage, linkDeviceToComplaint, assignProvider } from '@/lib/nexus/complaints';
+import { setComplaintStage, linkDeviceToComplaint, assignProvider, respondToQuote } from '@/lib/nexus/complaints';
 import { addDeviceForCustomer, listDevicesForCustomer, type DeviceKey, type NexusDeviceSummary } from '@/lib/nexus/devices';
 import { listProviders, type NexusProvider } from '@/lib/nexus/providers';
 
@@ -47,5 +47,10 @@ export async function fetchProviders(search?: string): Promise<NexusProvider[]> 
 
 export async function reassignProvider(complaintId: string, providerId: string) {
   await assignProvider(complaintId, providerId);
+  revalidatePath('/tickets');
+}
+
+export async function respondToQuoteAction(complaintId: string, approved: boolean, rejectionReason?: string) {
+  await respondToQuote(complaintId, approved, rejectionReason);
   revalidatePath('/tickets');
 }

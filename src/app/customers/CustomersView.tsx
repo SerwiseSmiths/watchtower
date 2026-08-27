@@ -6,6 +6,7 @@ import { dmSans } from '../tickets/fonts';
 import { ChevronRightIcon } from '../tickets/icons';
 import { formatDate, formatCurrency } from '../providers/mapProvider';
 import RootSidebar from '@/components/RootSidebar';
+import AddCustomerModal from './AddCustomerModal';
 import type { NexusCustomerListItem } from '@/lib/nexus/customers';
 
 function initialsFor(firstName: string | null, lastName: string | null, fallback: string): string {
@@ -37,6 +38,7 @@ export default function CustomersView({ customers }: { customers: NexusCustomerL
   const cellStyle: CSSProperties = { fontSize: 12, fontWeight: 600, letterSpacing: '-0.03em', color: '#000000' };
 
   const [query, setQuery] = useState('');
+  const [addOpen, setAddOpen] = useState(false);
 
   const filtered = useMemo(() => {
     const normalized = query.trim().toLowerCase();
@@ -75,6 +77,14 @@ export default function CustomersView({ customers }: { customers: NexusCustomerL
               style={{ ...labelStyle, background: 'transparent', border: 'none', outline: 'none', width: '100%' }}
             />
           </div>
+
+          <button
+            type="button"
+            onClick={() => setAddOpen(true)}
+            style={{ background: '#181818', color: '#FFFFFF', borderRadius: 5, padding: '10px 16px', fontSize: 12, fontWeight: 500, letterSpacing: '-0.03em', border: 'none' }}
+          >
+            + Add
+          </button>
         </div>
 
         <div style={{ background: '#FFFFFF', border: '1px solid #E5E5E5', borderRadius: 5, overflow: 'hidden' }}>
@@ -128,6 +138,16 @@ export default function CustomersView({ customers }: { customers: NexusCustomerL
           })}
         </div>
       </main>
+
+      {addOpen && (
+        <AddCustomerModal
+          onClose={() => setAddOpen(false)}
+          onCreated={() => {
+            setAddOpen(false);
+            router.refresh();
+          }}
+        />
+      )}
     </div>
   );
 }

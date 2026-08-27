@@ -97,3 +97,13 @@ export async function assignProvider(complaintId: string, providerId: string): P
     body: JSON.stringify({ providerId }),
   });
 }
+
+/** Approves or rejects a pending quote as ADMIN, on the customer's behalf — same effect as
+ *  the customer responding in serwise (approve → PAYMENT/COMPLETED, reject → REJECTED). */
+export async function respondToQuote(complaintId: string, approved: boolean, rejectionReason?: string): Promise<void> {
+  await nexusFetch(`/complaint/${complaintId}/quote/respond`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ approved, ...(rejectionReason && { rejectionReason }) }),
+  });
+}
