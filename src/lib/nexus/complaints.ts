@@ -69,6 +69,26 @@ export async function fetchAllComplaints(): Promise<NexusComplaint[]> {
   return body.data.complaints as NexusComplaint[];
 }
 
+export interface CreateComplaintInput {
+  customerId: string;
+  title: string;
+  notes?: string;
+  addressId: string;
+  deviceId?: string;
+  deviceKey?: string;
+}
+
+/** Creates a complaint on a customer's behalf, as ADMIN. */
+export async function createComplaint(input: CreateComplaintInput): Promise<NexusComplaint> {
+  const res = await nexusFetch('/complaint', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(input),
+  });
+  const body = await res.json();
+  return body.data.complaint as NexusComplaint;
+}
+
 /** Force-advances a complaint's stage as ADMIN — used for the entrance bypass action, which
  *  skips the customer's QR scan and moves ENTRANCE straight to QR_VALIDATED. */
 export async function setComplaintStage(complaintId: string, stage: ComplaintStage): Promise<void> {

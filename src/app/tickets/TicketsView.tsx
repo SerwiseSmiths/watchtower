@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState, useTransition, type CSSProperties } from 'react';
+import { useRouter } from 'next/navigation';
 import { dmSans } from './fonts';
 import RootSidebar from '@/components/RootSidebar';
 import type { Ticket, TicketStatus } from './mapComplaint';
@@ -8,6 +9,7 @@ import { bypassEntrance } from './actions';
 import { FilterIcon, ChevronRightIcon, RaisedIcon, InWarrantyIcon, InProgressIcon, CancelledIcon, CompletedIcon } from './icons';
 import { STATUS_COLORS } from './statusColors';
 import TicketDetailPanel from './TicketDetailPanel';
+import AddTicketModal from './AddTicketModal';
 
 const ALL_STATUSES: TicketStatus[] = ['Raised', 'In-Warranty', 'In Progress', 'Cancelled', 'Completed'];
 
@@ -143,6 +145,7 @@ function FilterPopover({
 }
 
 export default function TicketsView({ tickets }: { tickets: Ticket[] }) {
+  const router = useRouter();
   const labelStyle: CSSProperties = { fontSize: 10, fontWeight: 600, letterSpacing: '-0.03em', color: '#B7B7B7' };
   const cellStyle: CSSProperties = { fontSize: 12, fontWeight: 600, letterSpacing: '-0.03em', color: '#000000' };
 
@@ -151,6 +154,7 @@ export default function TicketsView({ tickets }: { tickets: Ticket[] }) {
   const [filterOpen, setFilterOpen] = useState(false);
   const filterRef = useRef<HTMLDivElement>(null);
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
+  const [addOpen, setAddOpen] = useState(false);
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -248,6 +252,7 @@ export default function TicketsView({ tickets }: { tickets: Ticket[] }) {
             </div>
             <button
               type="button"
+              onClick={() => setAddOpen(true)}
               style={{ background: '#181818', color: '#FFFFFF', borderRadius: 5, padding: '10px 16px', fontSize: 12, fontWeight: 500, letterSpacing: '-0.03em', border: 'none' }}
             >
               + Add
@@ -322,6 +327,16 @@ export default function TicketsView({ tickets }: { tickets: Ticket[] }) {
         hasPrev={selectedIndex !== null && selectedIndex > 0}
         hasNext={selectedIndex !== null && selectedIndex < filteredTickets.length - 1}
       />
+
+      {addOpen && (
+        <AddTicketModal
+          onClose={() => setAddOpen(false)}
+          onCreated={() => {
+            setAddOpen(false);
+            router.refresh();
+          }}
+        />
+      )}
     </div>
   );
 }

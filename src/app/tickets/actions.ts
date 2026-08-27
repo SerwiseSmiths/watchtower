@@ -1,9 +1,10 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
-import { setComplaintStage, linkDeviceToComplaint, assignProvider, respondToQuote } from '@/lib/nexus/complaints';
+import { setComplaintStage, linkDeviceToComplaint, assignProvider, respondToQuote, createComplaint, type CreateComplaintInput, type NexusComplaint } from '@/lib/nexus/complaints';
 import { addDeviceForCustomer, listDevicesForCustomer, type DeviceKey, type NexusDeviceSummary } from '@/lib/nexus/devices';
 import { listProviders, type NexusProvider } from '@/lib/nexus/providers';
+import { fetchAllCustomers, fetchCustomer, type NexusCustomerListItem, type NexusCustomerDetail } from '@/lib/nexus/customers';
 
 export async function bypassEntrance(complaintId: string) {
   await setComplaintStage(complaintId, 'QR_VALIDATED');
@@ -53,4 +54,18 @@ export async function reassignProvider(complaintId: string, providerId: string) 
 export async function respondToQuoteAction(complaintId: string, approved: boolean, rejectionReason?: string) {
   await respondToQuote(complaintId, approved, rejectionReason);
   revalidatePath('/tickets');
+}
+
+export async function searchCustomers(search?: string): Promise<NexusCustomerListItem[]> {
+  return fetchAllCustomers(search);
+}
+
+export async function fetchCustomerDetail(customerId: string): Promise<NexusCustomerDetail> {
+  return fetchCustomer(customerId);
+}
+
+export async function createTicketAction(input: CreateComplaintInput): Promise<NexusComplaint> {
+  const complaint = await createComplaint(input);
+  revalidatePath('/tickets');
+  return complaint;
 }
