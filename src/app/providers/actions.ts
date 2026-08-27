@@ -5,7 +5,9 @@ import {
   createProvider,
   updateProvider,
   fetchProvider,
+  approveProviderBankAccount,
   type NexusProviderDetail,
+  type NexusProviderBankAccount,
   type ProviderInput,
 } from '@/lib/nexus/providers';
 import { autocompleteAddress, type AddressPrediction } from '@/lib/nexus/geocode';
@@ -31,4 +33,10 @@ export async function updateProviderAction(
 
 export async function searchAddressAction(query: string): Promise<AddressPrediction[]> {
   return autocompleteAddress(query);
+}
+
+export async function approveProviderBankAccountAction(id: string): Promise<NexusProviderBankAccount> {
+  const bankAccount = await approveProviderBankAccount(id);
+  revalidatePath('/providers');
+  return bankAccount;
 }

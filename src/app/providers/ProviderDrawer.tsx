@@ -3,7 +3,12 @@
 import { useEffect, useState, type CSSProperties } from 'react';
 import { useRouter } from 'next/navigation';
 import type { NexusProviderAddress, NexusProviderDetail, DeviceTypeKey } from '@/lib/nexus/providers';
-import { createProviderAction, updateProviderAction, fetchProviderDetailAction } from './actions';
+import {
+  createProviderAction,
+  updateProviderAction,
+  fetchProviderDetailAction,
+  approveProviderBankAccountAction,
+} from './actions';
 import { CloseIcon } from '../tickets/icons';
 import { SkillIcon, SKILL_LABELS, SKILL_ORDER } from './skillIcons';
 import AddressFields from './AddressFields';
@@ -35,6 +40,11 @@ interface FormState {
   imageBase64?: string;
   imageMimeType?: string;
   imagePreviewUrl: string | null;
+  bankName: string;
+  accountNumber: string;
+  accountHolderName: string;
+  ifscCode: string;
+  isBankApproved: boolean;
 }
 
 const EMPTY_FORM: FormState = {
@@ -47,6 +57,11 @@ const EMPTY_FORM: FormState = {
   aadharAddress: {},
   adminNotes: '',
   imagePreviewUrl: null,
+  bankName: '',
+  accountNumber: '',
+  accountHolderName: '',
+  ifscCode: '',
+  isBankApproved: false,
 };
 
 function providerToForm(provider: NexusProviderDetail): FormState {
@@ -60,6 +75,11 @@ function providerToForm(provider: NexusProviderDetail): FormState {
     aadharAddress: provider.aadharAddress ?? {},
     adminNotes: provider.adminNotes ?? '',
     imagePreviewUrl: provider.avatar,
+    bankName: provider.bankAccount?.bankName ?? '',
+    accountNumber: provider.bankAccount?.accountNumber ?? '',
+    accountHolderName: provider.bankAccount?.accountHolderName ?? '',
+    ifscCode: provider.bankAccount?.ifscCode ?? '',
+    isBankApproved: provider.bankAccount?.isApproved ?? false,
   };
 }
 
@@ -77,6 +97,7 @@ export default function ProviderDrawer({
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [approvingBank, setApprovingBank] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -133,6 +154,8 @@ export default function ProviderDrawer({
       return;
     }
 
+    const hasBankDetails = form.bankName.trim() && form.accountNumber.trim() && form.accountHolderName.trim() && form.ifscCode.trim();
+
     setSaving(true);
     setError(null);
     try {
@@ -147,6 +170,14 @@ export default function ProviderDrawer({
         adminNotes: form.adminNotes || undefined,
         imageBase64: form.imageBase64,
         imageMimeType: form.imageMimeType,
+        bankAccount: hasBankDetails
+          ? {
+              bankName: form.bankName,
+              accountNumber: form.accountNumber,
+              accountHolderName: form.accountHolderName,
+              ifscCode: form.ifscCode,
+            }
+          : undefined,
       };
 
       if (providerId) {
@@ -161,6 +192,21 @@ export default function ProviderDrawer({
       setError(err instanceof Error ? err.message : 'Failed to save provider');
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function handleApproveBank() {
+    if (!providerId) return;
+    setApprovingBank(true);
+    setError(null);
+    try {
+      await approveProviderBankAccountAction(providerId);
+      setForm((p) => ({ ...p, isBankApproved: true }));
+      router.refresh();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to approve bank details');
+    } finally {
+      setApprovingBank(false);
     }
   }
 
@@ -337,6 +383,62 @@ export default function ProviderDrawer({
                   rows={3}
                   style={{ ...inputStyle, resize: 'none' }}
                 />
+              </div>
+            </div>
+
+            <div className="row g-3 mb-4">
+              <div className="col-6">
+                <div className="d-flex justify-content-between align-items-center mb-2">
+                  <span style={fieldLabelStyle}>Bank Details</span>
+                  <button
+                    type="button"
+                    onClick={handleApproveBank}
+                    disabled={!providerId || approvingBank || form.isBankApproved}
+                    style={{
+                      background: form.isBankApproved ? '#2FAD63' : '#181818',
+                      color: '#FFFFFF',
+                      border: 'none',
+                      borderRadius: 6,
+                      padding: '5px 10px',
+                      fontSize: 8,
+                      fontWeight: 600,
+                      letterSpacing: '-0.03em',
+                      opacity: !providerId || approvingBank ? 0.6 : 1,
+                    }}
+                  >
+                    {form.isBankApproved ? 'Approved' : approvingBank ? 'Approving…' : 'Approve Details'}
+                  </button>
+                </div>
+                <div className="d-flex flex-column" style={{ gap: 5 }}>
+                  <input
+                    type="text"
+                    value={form.bankName}
+                    onChange={(e) => setForm((p) => ({ ...p, bankName: e.target.value, isBankApproved: false }))}
+                    placeholder="Complete Bank Name"
+                    style={inputStyle}
+                  />
+                  <input
+                    type="text"
+                    value={form.accountNumber}
+                    onChange={(e) => setForm((p) => ({ ...p, accountNumber: e.target.value, isBankApproved: false }))}
+                    placeholder="Account Number"
+                    style={inputStyle}
+                  />
+                  <input
+                    type="text"
+                    value={form.accountHolderName}
+                    onChange={(e) => setForm((p) => ({ ...p, accountHolderName: e.target.value, isBankApproved: false }))}
+                    placeholder="Account Holder Name"
+                    style={inputStyle}
+                  />
+                  <input
+                    type="text"
+                    value={form.ifscCode}
+                    onChange={(e) => setForm((p) => ({ ...p, ifscCode: e.target.value, isBankApproved: false }))}
+                    placeholder="Bank IFSC Code"
+                    style={inputStyle}
+                  />
+                </div>
               </div>
             </div>
 

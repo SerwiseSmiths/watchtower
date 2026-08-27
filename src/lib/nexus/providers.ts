@@ -30,6 +30,16 @@ export interface NexusProviderStats {
   walletBalance: number;
 }
 
+export interface NexusProviderBankAccount {
+  bankName: string;
+  accountNumber: string;
+  ifscCode: string;
+  accountHolderName: string;
+  isApproved: boolean;
+  approvedAt: string | null;
+  lastChangedAt: string;
+}
+
 export interface NexusProviderDetail {
   id: string;
   firstName: string | null;
@@ -42,9 +52,17 @@ export interface NexusProviderDetail {
   currentAddress: NexusProviderAddress | null;
   aadharAddress: NexusProviderAddress | null;
   adminNotes: string | null;
+  bankAccount: NexusProviderBankAccount | null;
   createdAt: string;
   updatedAt: string;
   stats: NexusProviderStats;
+}
+
+export interface ProviderBankAccountInput {
+  bankName: string;
+  accountNumber: string;
+  ifscCode: string;
+  accountHolderName: string;
 }
 
 export interface ProviderInput {
@@ -58,6 +76,7 @@ export interface ProviderInput {
   adminNotes?: string;
   imageBase64?: string;
   imageMimeType?: string;
+  bankAccount?: ProviderBankAccountInput;
 }
 
 /** Lists active providers for a reassignment picker — nexus's ADMIN-only /user/providers. */
@@ -101,4 +120,10 @@ export async function updateProvider(id: string, input: Partial<ProviderInput> &
   });
   const body = await res.json();
   return body.data.provider as NexusProviderDetail;
+}
+
+export async function approveProviderBankAccount(id: string): Promise<NexusProviderBankAccount> {
+  const res = await nexusFetch(`/user/providers/${id}/bank-account/approve`, { method: 'PATCH' });
+  const body = await res.json();
+  return body.data.bankAccount as NexusProviderBankAccount;
 }
