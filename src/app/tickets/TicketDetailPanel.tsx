@@ -19,6 +19,7 @@ import { STATUS_COLORS } from './statusColors';
 import AddApplianceForm from './AddApplianceForm';
 import ReassignPopover from './ReassignPopover';
 import QuoteResponseActions from './QuoteResponseActions';
+import TicketLifecycleActions from './TicketLifecycleActions';
 
 type StageKey = 'RAISED' | 'ASSIGNED' | 'ENTRANCE' | 'ESTIMATION' | 'APPROVAL' | 'PAYMENT' | 'IN_WARRANTY' | 'COMPLETED' | 'CANCELLED';
 
@@ -367,6 +368,11 @@ export default function TicketDetailPanel({
             </div>
             <div style={{ ...labelStyle, marginTop: 4 }}>{content.startDate}</div>
           </div>
+
+          <TicketLifecycleActions
+            complaintId={content.complaintId}
+            isClosed={content.stage === 'COMPLETED' || content.stage === 'REJECTED'}
+          />
 
           <div style={{ borderBottom: '2px solid #E5E5E5', paddingBottom: 15 }}>
             <div style={{ ...labelStyle, marginBottom: 6 }}>Current Stage &amp; Activity</div>

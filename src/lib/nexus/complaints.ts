@@ -90,13 +90,26 @@ export async function createComplaint(input: CreateComplaintInput): Promise<Nexu
 }
 
 /** Force-advances a complaint's stage as ADMIN — used for the entrance bypass action, which
- *  skips the customer's QR scan and moves ENTRANCE straight to QR_VALIDATED. */
-export async function setComplaintStage(complaintId: string, stage: ComplaintStage): Promise<void> {
+ *  skips the customer's QR scan and moves ENTRANCE straight to QR_VALIDATED, and for cancelling
+ *  a ticket (stage: REJECTED — displays as "Cancelled" in the tickets table). */
+export async function setComplaintStage(complaintId: string, stage: ComplaintStage, rejectionReason?: string): Promise<void> {
   await nexusFetch(`/complaint/${complaintId}/stage`, {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ stage }),
+    body: JSON.stringify({ stage, ...(rejectionReason && { rejectionReason }) }),
   });
+}
+
+/** Reopens a completed or cancelled complaint as ADMIN, on the customer's behalf — creates a
+ *  fresh complaint (parentId pointing to the original) owned by the same customer. */
+export async function reopenComplaint(complaintId: string): Promise<NexusComplaint> {
+  const res = await nexusFetch(`/complaint/${complaintId}/reopen`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({}),
+  });
+  const body = await res.json();
+  return body.data.complaint as NexusComplaint;
 }
 
 /** Attaches a device to a complaint as ADMIN — same effect as a provider identifying the

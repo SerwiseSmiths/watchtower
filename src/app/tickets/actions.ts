@@ -1,7 +1,7 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
-import { setComplaintStage, linkDeviceToComplaint, assignProvider, respondToQuote, createComplaint, type CreateComplaintInput, type NexusComplaint } from '@/lib/nexus/complaints';
+import { setComplaintStage, linkDeviceToComplaint, assignProvider, respondToQuote, createComplaint, reopenComplaint, type CreateComplaintInput, type NexusComplaint } from '@/lib/nexus/complaints';
 import { addDeviceForCustomer, listDevicesForCustomer, type DeviceKey, type NexusDeviceSummary } from '@/lib/nexus/devices';
 import { listProviders, type NexusProvider } from '@/lib/nexus/providers';
 import { fetchAllCustomers, fetchCustomer, type NexusCustomerListItem, type NexusCustomerDetail } from '@/lib/nexus/customers';
@@ -66,6 +66,17 @@ export async function fetchCustomerDetail(customerId: string): Promise<NexusCust
 
 export async function createTicketAction(input: CreateComplaintInput): Promise<NexusComplaint> {
   const complaint = await createComplaint(input);
+  revalidatePath('/tickets');
+  return complaint;
+}
+
+export async function cancelTicketAction(complaintId: string, reason?: string) {
+  await setComplaintStage(complaintId, 'REJECTED', reason);
+  revalidatePath('/tickets');
+}
+
+export async function reopenTicketAction(complaintId: string): Promise<NexusComplaint> {
+  const complaint = await reopenComplaint(complaintId);
   revalidatePath('/tickets');
   return complaint;
 }
