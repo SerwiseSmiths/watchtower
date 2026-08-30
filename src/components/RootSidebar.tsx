@@ -16,6 +16,7 @@ const NAV_ITEMS: NavItem[] = [
   { href: '/providers', label: 'Providers' },
   { href: '/provider-tiers', label: 'Provider Tiers' },
   { href: '/customers', label: 'Customers' },
+  { href: '/device-types', label: 'Device Types' },
 ];
 
 export default function RootSidebar() {
