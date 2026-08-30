@@ -3,10 +3,12 @@
 import { useEffect, useState, type CSSProperties } from 'react';
 import { useRouter } from 'next/navigation';
 import type { NexusProviderAddress, NexusProviderDetail, DeviceTypeKey } from '@/lib/nexus/providers';
+import type { NexusProviderTier } from '@/lib/nexus/providerTiers';
 import {
   createProviderAction,
   updateProviderAction,
   fetchProviderDetailAction,
+  fetchProviderTiersAction,
   approveProviderBankAccountAction,
 } from './actions';
 import { CloseIcon } from '../tickets/icons';
@@ -37,6 +39,7 @@ interface FormState {
   currentAddress: NexusProviderAddress;
   aadharAddress: NexusProviderAddress;
   adminNotes: string;
+  providerTierId: string | null;
   imageBase64?: string;
   imageMimeType?: string;
   imagePreviewUrl: string | null;
@@ -56,6 +59,7 @@ const EMPTY_FORM: FormState = {
   currentAddress: {},
   aadharAddress: {},
   adminNotes: '',
+  providerTierId: null,
   imagePreviewUrl: null,
   bankName: '',
   accountNumber: '',
@@ -74,6 +78,7 @@ function providerToForm(provider: NexusProviderDetail): FormState {
     currentAddress: provider.currentAddress ?? {},
     aadharAddress: provider.aadharAddress ?? {},
     adminNotes: provider.adminNotes ?? '',
+    providerTierId: provider.providerTierId,
     imagePreviewUrl: provider.avatar,
     bankName: provider.bankAccount?.bankName ?? '',
     accountNumber: provider.bankAccount?.accountNumber ?? '',
@@ -99,6 +104,14 @@ export default function ProviderDrawer({
   const [saving, setSaving] = useState(false);
   const [approvingBank, setApprovingBank] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [tiers, setTiers] = useState<NexusProviderTier[]>([]);
+
+  useEffect(() => {
+    if (!open) return;
+    fetchProviderTiersAction()
+      .then(setTiers)
+      .catch(() => setTiers([]));
+  }, [open]);
 
   useEffect(() => {
     if (open) {
@@ -168,6 +181,7 @@ export default function ProviderDrawer({
         currentAddress: form.currentAddress,
         aadharAddress: form.aadharAddress,
         adminNotes: form.adminNotes || undefined,
+        providerTierId: form.providerTierId,
         imageBase64: form.imageBase64,
         imageMimeType: form.imageMimeType,
         bankAccount: hasBankDetails
@@ -383,6 +397,24 @@ export default function ProviderDrawer({
                   rows={3}
                   style={{ ...inputStyle, resize: 'none' }}
                 />
+              </div>
+            </div>
+
+            <div className="row g-3 mb-4">
+              <div className="col-6">
+                <div style={fieldLabelStyle}>Provider Tier</div>
+                <select
+                  value={form.providerTierId ?? ''}
+                  onChange={(e) => setForm((p) => ({ ...p, providerTierId: e.target.value || null }))}
+                  style={inputStyle}
+                >
+                  <option value="">No tier</option>
+                  {tiers.map((tier) => (
+                    <option key={tier.id} value={tier.id}>
+                      {tier.name}
+                    </option>
+                  ))}
+                </select>
               </div>
             </div>
 

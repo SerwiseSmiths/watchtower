@@ -10,10 +10,15 @@ import {
   type NexusProviderBankAccount,
   type ProviderInput,
 } from '@/lib/nexus/providers';
+import { listProviderTiers, type NexusProviderTier } from '@/lib/nexus/providerTiers';
 import { autocompleteAddress, type AddressPrediction } from '@/lib/nexus/geocode';
 
 export async function fetchProviderDetailAction(id: string): Promise<NexusProviderDetail> {
   return fetchProvider(id);
+}
+
+export async function fetchProviderTiersAction(): Promise<NexusProviderTier[]> {
+  return listProviderTiers();
 }
 
 export async function createProviderAction(input: ProviderInput): Promise<NexusProviderDetail> {

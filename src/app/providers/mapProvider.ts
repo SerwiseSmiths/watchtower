@@ -11,6 +11,8 @@ export interface ProviderRow {
   email: string | null;
   isActive: boolean;
   skills: string[];
+  providerTierName: string | null;
+  providerTierColor: string | null;
   complaintSuccess: number;
   location: string | null;
   walletBalance: number;
@@ -52,6 +54,8 @@ export function mapProviderToRow(provider: NexusProviderDetail): ProviderRow {
     email: provider.email,
     isActive: provider.isActive,
     skills: provider.skills,
+    providerTierName: provider.providerTierName,
+    providerTierColor: provider.providerTierColor,
     complaintSuccess: provider.stats.complaintSuccess,
     location,
     walletBalance: provider.stats.walletBalance,

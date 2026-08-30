@@ -52,6 +52,9 @@ export interface NexusProviderDetail {
   currentAddress: NexusProviderAddress | null;
   aadharAddress: NexusProviderAddress | null;
   adminNotes: string | null;
+  providerTierId: string | null;
+  providerTierName: string | null;
+  providerTierColor: string | null;
   bankAccount: NexusProviderBankAccount | null;
   createdAt: string;
   updatedAt: string;
@@ -74,6 +77,7 @@ export interface ProviderInput {
   currentAddress?: NexusProviderAddress;
   aadharAddress?: NexusProviderAddress;
   adminNotes?: string;
+  providerTierId?: string | null;
   imageBase64?: string;
   imageMimeType?: string;
   bankAccount?: ProviderBankAccountInput;

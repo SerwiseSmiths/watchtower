@@ -94,6 +94,7 @@ export default function ProvidersView({ providers }: { providers: ProviderRow[] 
             </div>
             <div style={{ width: 200, ...labelStyle }}>Name</div>
             <div style={{ width: 130, ...labelStyle }}>Phone Number</div>
+            <div style={{ width: 90, ...labelStyle }}>Tier</div>
             <div style={{ width: 120, ...labelStyle }}>Complaint Success</div>
             <div style={{ width: 130, ...labelStyle }}>Location</div>
             <div style={{ width: 110, ...labelStyle }}>Wallet Balance</div>
@@ -123,6 +124,25 @@ export default function ProvidersView({ providers }: { providers: ProviderRow[] 
                 {provider.name}
               </div>
               <div style={{ width: 130, ...cellStyle }}>{provider.phoneNumber}</div>
+              <div style={{ width: 90 }}>
+                {provider.providerTierName ? (
+                  <span
+                    style={{
+                      fontSize: 10,
+                      fontWeight: 600,
+                      letterSpacing: '-0.03em',
+                      color: provider.providerTierColor ?? '#454545',
+                      border: `1px solid ${provider.providerTierColor ?? '#B7B7B7'}`,
+                      borderRadius: 20,
+                      padding: '2px 8px',
+                    }}
+                  >
+                    {provider.providerTierName}
+                  </span>
+                ) : (
+                  <span style={{ ...cellStyle, color: '#B7B7B7' }}>—</span>
+                )}
+              </div>
               <div style={{ width: 120, ...cellStyle }}>{provider.complaintSuccess.toLocaleString('en-IN')}</div>
               <div style={{ width: 130, ...cellStyle }}>{provider.location ?? '—'}</div>
               <div style={{ width: 110, ...cellStyle, color: provider.walletBalance > 0 ? '#0C8D6E' : provider.walletBalance < 0 ? '#E53935' : '#000' }}>

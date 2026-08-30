@@ -14,6 +14,7 @@ interface NavItem {
 const NAV_ITEMS: NavItem[] = [
   { href: '/tickets', label: 'Tickets' },
   { href: '/providers', label: 'Providers' },
+  { href: '/provider-tiers', label: 'Provider Tiers' },
   { href: '/customers', label: 'Customers' },
 ];
 

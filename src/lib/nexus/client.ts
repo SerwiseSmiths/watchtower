@@ -33,7 +33,14 @@ export async function nexusFetch(path: string, init: RequestInit = {}): Promise<
     cache: 'no-store',
   });
 
-  if (!res.ok) throw new Error(`Nexus ${init.method ?? 'GET'} ${path} failed with ${res.status}`);
+  if (!res.ok) {
+    const message = await res
+      .clone()
+      .json()
+      .then((body) => body?.message as string | undefined)
+      .catch(() => undefined);
+    throw new Error(message || `Nexus ${init.method ?? 'GET'} ${path} failed with ${res.status}`);
+  }
 
   return res;
 }
