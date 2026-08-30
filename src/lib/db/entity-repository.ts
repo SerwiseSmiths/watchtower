@@ -2,6 +2,7 @@ import { randomBytes } from 'crypto';
 import { prisma } from './prisma';
 import { cmpsTableName, getComponent, getContentType, getRelationTable, toColumnName } from '../content-schema/registry';
 import type { ContentTypeSchema, FieldSchema } from '../content-schema/types';
+import { logAudit } from '@/lib/audit/log';
 
 type Row = Record<string, unknown>;
 type PrismaModel = {
@@ -238,9 +239,14 @@ export async function listEntities(contentTypeUid: string, options: ListOptions 
     model(schema.collectionName).count({ where }),
   ]);
 
-  const data = await Promise.all(
-    rows.map(async (row) => pickFields(await hydrateAttributes(schema.uid, schema.collectionName, row, schema.attributes), options.fields)),
-  );
+  // Sequenced, not Promise.all'd — hydrating a row with media/relation fields issues
+  // multiple queries per row, and fanning that out across every row at once can exceed
+  // the DB's connection pool for any content type with more than a handful of rows
+  // (this is what caused a P2024 "connection pool timeout" incident on Device Types).
+  const data: Row[] = [];
+  for (const row of rows) {
+    data.push(pickFields(await hydrateAttributes(schema.uid, schema.collectionName, row, schema.attributes), options.fields));
+  }
 
   return {
     data,
@@ -462,6 +468,13 @@ async function writeNestedFields(
   }
 }
 
+/** Best-effort human-readable label for an audit-log entry — tries the common
+ *  "display name" attributes before falling back to the raw id. */
+function labelFor(row: Row): string | undefined {
+  const candidate = (row.label ?? row.name ?? row.key ?? row.title) as string | undefined;
+  return candidate ?? undefined;
+}
+
 export async function createEntity(contentTypeUid: string, data: Row) {
   const schema = getContentType(contentTypeUid);
   const now = new Date();
@@ -476,15 +489,33 @@ export async function createEntity(contentTypeUid: string, data: Row) {
     },
   });
   await writeNestedFields(schema.uid, schema.collectionName, row.id as number, schema.attributes, data);
-  return findEntity(contentTypeUid, row.id as number);
+  const created = await findEntity(contentTypeUid, row.id as number);
+  await logAudit({
+    module: schema.singularName,
+    action: 'CREATE',
+    entityId: String(row.id),
+    entityLabel: created ? labelFor(created) : undefined,
+    after: created ?? undefined,
+  });
+  return created;
 }
 
 export async function updateEntity(contentTypeUid: string, id: number, data: Row) {
   const schema = getContentType(contentTypeUid);
+  const before = await findEntity(contentTypeUid, id);
   const scalarData = buildScalarData(schema.attributes, data);
   await model(schema.collectionName).update({ where: { id }, data: { ...scalarData, updated_at: new Date() } });
   await writeNestedFields(schema.uid, schema.collectionName, id, schema.attributes, data);
-  return findEntity(contentTypeUid, id);
+  const after = await findEntity(contentTypeUid, id);
+  await logAudit({
+    module: schema.singularName,
+    action: 'UPDATE',
+    entityId: String(id),
+    entityLabel: (after && labelFor(after)) ?? (before && labelFor(before)),
+    before: before ?? undefined,
+    after: after ?? undefined,
+  });
+  return after;
 }
 
 /** Finds which scalar attribute owns a Prisma unique-constraint violation's target column, so the
@@ -536,6 +567,7 @@ export async function duplicateEntity(contentTypeUid: string, documentId: string
 
 export async function deleteEntity(contentTypeUid: string, id: number) {
   const schema = getContentType(contentTypeUid);
+  const before = await findEntity(contentTypeUid, id);
   for (const [name, field] of Object.entries(schema.attributes)) {
     if (field.kind === 'media') {
       await model('files_related_mph').deleteMany({ where: { related_id: id, related_type: schema.uid, field: name } });
@@ -545,6 +577,13 @@ export async function deleteEntity(contentTypeUid: string, id: number) {
     // relations clean up via ON DELETE CASCADE on the `_lnk` tables' owner FK.
   }
   await model(schema.collectionName).delete({ where: { id } });
+  await logAudit({
+    module: schema.singularName,
+    action: 'DELETE',
+    entityId: String(id),
+    entityLabel: before ? labelFor(before) : undefined,
+    before: before ?? undefined,
+  });
 }
 
 /**

@@ -12,6 +12,11 @@ import {
 } from '@/lib/nexus/providers';
 import { listProviderTiers, type NexusProviderTier } from '@/lib/nexus/providerTiers';
 import { autocompleteAddress, type AddressPrediction } from '@/lib/nexus/geocode';
+import { logAudit } from '@/lib/audit/log';
+
+function providerLabel(p: { firstName: string | null; lastName: string | null; phoneNo: string }): string {
+  return [p.firstName, p.lastName].filter(Boolean).join(' ') || p.phoneNo;
+}
 
 export async function fetchProviderDetailAction(id: string): Promise<NexusProviderDetail> {
   return fetchProvider(id);
@@ -24,6 +29,7 @@ export async function fetchProviderTiersAction(): Promise<NexusProviderTier[]> {
 export async function createProviderAction(input: ProviderInput): Promise<NexusProviderDetail> {
   const provider = await createProvider(input);
   revalidatePath('/providers');
+  await logAudit({ module: 'provider', action: 'CREATE', entityId: provider.id, entityLabel: providerLabel(provider), after: { ...provider } });
   return provider;
 }
 
@@ -31,8 +37,17 @@ export async function updateProviderAction(
   id: string,
   input: Partial<ProviderInput> & { isActive?: boolean },
 ): Promise<NexusProviderDetail> {
+  const before = await fetchProvider(id).catch(() => null);
   const provider = await updateProvider(id, input);
   revalidatePath('/providers');
+  await logAudit({
+    module: 'provider',
+    action: 'UPDATE',
+    entityId: id,
+    entityLabel: providerLabel(provider),
+    before: before ? { ...before } : undefined,
+    after: { ...provider },
+  });
   return provider;
 }
 
@@ -43,5 +58,12 @@ export async function searchAddressAction(query: string): Promise<AddressPredict
 export async function approveProviderBankAccountAction(id: string): Promise<NexusProviderBankAccount> {
   const bankAccount = await approveProviderBankAccount(id);
   revalidatePath('/providers');
+  await logAudit({
+    module: 'provider',
+    action: 'UPDATE',
+    entityId: id,
+    entityLabel: 'Bank account approval',
+    changes: { bankAccountApproved: { old: false, new: true } },
+  });
   return bankAccount;
 }
