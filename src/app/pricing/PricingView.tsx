@@ -1,7 +1,7 @@
 'use client';
 
 import { useRef, useState, type ChangeEvent, type CSSProperties } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { dmSans } from '../tickets/fonts';
 import RootSidebar from '@/components/RootSidebar';
 import {
@@ -205,29 +205,10 @@ function SaveButton({ saving, onClick }: { saving: boolean; onClick: () => void 
 }
 
 // ─── Tabs ───────────────────────────────────────────────────────────────────
+// Tab selection lives in the URL (?tab=) and is driven by RootSidebar's Pricing
+// sub-links, not an in-page tab bar.
 
 type Tab = 'plans' | 'addons' | 'parts';
-
-function TabButton({ label, active, onClick }: { label: string; active: boolean; onClick: () => void }) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      style={{
-        background: active ? '#181818' : 'transparent',
-        color: active ? '#FFFFFF' : '#454545',
-        border: '1px solid #181818',
-        borderRadius: 6,
-        padding: '8px 18px',
-        fontSize: 12,
-        fontWeight: 600,
-        letterSpacing: '-0.03em',
-      }}
-    >
-      {label}
-    </button>
-  );
-}
 
 // ─── Plans tab ──────────────────────────────────────────────────────────────
 
@@ -867,20 +848,17 @@ export default function PricingView({
   parts: ServicePartRow[];
   deviceTypeOptions: DeviceTypeOption[];
 }) {
-  const [tab, setTab] = useState<Tab>('plans');
+  const searchParams = useSearchParams();
+  const tab: Tab = (searchParams?.get('tab') as Tab | null) ?? 'plans';
   const partOptions: RelationOption[] = parts.map((p) => ({ id: p.id, name: p.name }));
+
+  const heading: Record<Tab, string> = { plans: 'Subscription Plans', addons: 'Subscription Addons', parts: 'Service Parts' };
 
   return (
     <div className={dmSans.className} style={{ minHeight: '100vh', background: '#F2F2F2', display: 'flex' }}>
       <RootSidebar />
       <main className="flex-grow-1" style={{ padding: '44px 40px' }}>
-        <h1 className="mb-3" style={{ fontSize: 28, fontWeight: 700, letterSpacing: '-0.03em', color: '#181818' }}>Pricing</h1>
-
-        <div className="d-flex mb-4" style={{ gap: 10 }}>
-          <TabButton label="Subscription Plans" active={tab === 'plans'} onClick={() => setTab('plans')} />
-          <TabButton label="Subscription Addons" active={tab === 'addons'} onClick={() => setTab('addons')} />
-          <TabButton label="Service Parts" active={tab === 'parts'} onClick={() => setTab('parts')} />
-        </div>
+        <h1 className="mb-4" style={{ fontSize: 28, fontWeight: 700, letterSpacing: '-0.03em', color: '#181818' }}>{heading[tab]}</h1>
 
         {tab === 'plans' && <PlansTab plans={plans} partOptions={partOptions} />}
         {tab === 'addons' && <AddonsTab addons={addons} deviceTypeOptions={deviceTypeOptions} />}
