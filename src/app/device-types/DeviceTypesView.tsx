@@ -289,67 +289,76 @@ export default function DeviceTypesView({
         </div>
 
         {showForm && (
-          <div style={{ background: '#FFFFFF', border: '1px solid #E5E5E5', borderRadius: 5, padding: 20, marginBottom: 20 }}>
-            <div className="row g-3 mb-3">
-              <div className="col-4">
-                <div style={fieldLabelStyle}>Key</div>
-                <input type="text" value={form.key} onChange={(e) => setForm((p) => ({ ...p, key: e.target.value }))} style={inputStyle} placeholder="master_purifier" />
+          <div
+            onClick={closeForm}
+            style={{ position: 'fixed', inset: 0, zIndex: 50, background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+          >
+            <div
+              onClick={(e) => e.stopPropagation()}
+              style={{ width: 620, maxHeight: '90vh', overflowY: 'auto', background: '#FFFFFF', borderRadius: 10, padding: '20px 25px' }}
+            >
+              <div className="d-flex justify-content-between align-items-center mb-3">
+                <span style={{ fontSize: 22, fontWeight: 700, letterSpacing: '-0.03em', color: '#181818' }}>
+                  {editingId ? 'Edit Device Type' : 'Add Device Type'}
+                </span>
+                <button type="button" onClick={closeForm} style={{ background: 'none', border: 'none', fontSize: 18, color: '#B7B7B7', lineHeight: 1 }}>
+                  ×
+                </button>
               </div>
-              <div className="col-4">
-                <div style={fieldLabelStyle}>Label</div>
-                <input type="text" value={form.label} onChange={(e) => setForm((p) => ({ ...p, label: e.target.value }))} style={inputStyle} placeholder="Master Purifier" />
-              </div>
-            </div>
 
-            <div className="row g-3 mb-3">
-              <div className="col-4">
-                <ImageField label="Icon" value={form.icon} onChange={(icon) => setForm((p) => ({ ...p, icon }))} />
+              <div className="row g-3 mb-3">
+                <div className="col-6">
+                  <div style={fieldLabelStyle}>Key</div>
+                  <input type="text" value={form.key} onChange={(e) => setForm((p) => ({ ...p, key: e.target.value }))} style={inputStyle} placeholder="master_purifier" />
+                </div>
+                <div className="col-6">
+                  <div style={fieldLabelStyle}>Label</div>
+                  <input type="text" value={form.label} onChange={(e) => setForm((p) => ({ ...p, label: e.target.value }))} style={inputStyle} placeholder="Master Purifier" />
+                </div>
               </div>
-              <div className="col-4">
-                <ImageField label="Button Image" value={form.buttonImage} onChange={(buttonImage) => setForm((p) => ({ ...p, buttonImage }))} />
-              </div>
-            </div>
 
-            <div className="row g-3 mb-3">
-              <div className="col-6">
-                <RelationChecklist
-                  label="Linked Service Parts"
-                  options={servicePartOptions}
-                  selectedIds={form.servicePartIds}
-                  onChange={(servicePartIds) => setForm((p) => ({ ...p, servicePartIds }))}
-                />
+              <div className="row g-3 mb-3">
+                <div className="col-6">
+                  <ImageField label="Icon" value={form.icon} onChange={(icon) => setForm((p) => ({ ...p, icon }))} />
+                </div>
+                <div className="col-6">
+                  <ImageField label="Button Image" value={form.buttonImage} onChange={(buttonImage) => setForm((p) => ({ ...p, buttonImage }))} />
+                </div>
               </div>
-              <div className="col-6">
-                <RelationChecklist
-                  label="Linked Subscription Addons"
-                  options={subscriptionAddonOptions}
-                  selectedIds={form.subscriptionAddonIds}
-                  onChange={(subscriptionAddonIds) => setForm((p) => ({ ...p, subscriptionAddonIds }))}
-                />
-              </div>
-            </div>
 
-            {error && (
-              <div className="mb-3" style={{ color: '#E53935', fontSize: 12, fontWeight: 600 }}>
-                {error}
+              <div className="row g-3 mb-3">
+                <div className="col-6">
+                  <RelationChecklist
+                    label="Linked Service Parts"
+                    options={servicePartOptions}
+                    selectedIds={form.servicePartIds}
+                    onChange={(servicePartIds) => setForm((p) => ({ ...p, servicePartIds }))}
+                  />
+                </div>
+                <div className="col-6">
+                  <RelationChecklist
+                    label="Linked Subscription Addons"
+                    options={subscriptionAddonOptions}
+                    selectedIds={form.subscriptionAddonIds}
+                    onChange={(subscriptionAddonIds) => setForm((p) => ({ ...p, subscriptionAddonIds }))}
+                  />
+                </div>
               </div>
-            )}
 
-            <div className="d-flex" style={{ gap: 10 }}>
+              {error && (
+                <div className="mb-3" style={{ color: '#E53935', fontSize: 12, fontWeight: 600 }}>
+                  {error}
+                </div>
+              )}
+
               <button
                 type="button"
                 onClick={handleSave}
                 disabled={saving}
-                style={{ background: '#181818', color: '#FFFFFF', border: 'none', borderRadius: 6, padding: '10px 20px', fontSize: 13, fontWeight: 600, letterSpacing: '-0.03em', opacity: saving ? 0.6 : 1 }}
+                className="w-100"
+                style={{ background: '#181818', color: '#FFFFFF', border: 'none', borderRadius: 6, padding: '13px', fontSize: 14, fontWeight: 600, letterSpacing: '-0.03em', opacity: saving ? 0.6 : 1 }}
               >
-                {saving ? 'Saving…' : 'Save'}
-              </button>
-              <button
-                type="button"
-                onClick={closeForm}
-                style={{ background: 'transparent', color: '#454545', border: '1px solid #E5E5E5', borderRadius: 6, padding: '10px 20px', fontSize: 13, fontWeight: 600, letterSpacing: '-0.03em' }}
-              >
-                Cancel
+                {saving ? 'Saving…' : 'Save & Continue'}
               </button>
             </div>
           </div>
@@ -375,7 +384,8 @@ export default function DeviceTypesView({
             <div
               key={row.id}
               className="d-flex align-items-center"
-              style={{ padding: '0 13px', height: 48, borderBottom: i === deviceTypes.length - 1 ? 'none' : '1px solid #E5E5E5' }}
+              style={{ padding: '0 13px', height: 48, borderBottom: i === deviceTypes.length - 1 ? 'none' : '1px solid #E5E5E5', cursor: 'pointer' }}
+              onClick={() => openEdit(row)}
             >
               <div style={{ width: 60 }}>
                 <div style={{ width: 32, height: 32, borderRadius: 5, background: '#EFEFEF', overflow: 'hidden' }}>
@@ -389,15 +399,22 @@ export default function DeviceTypesView({
               <div style={{ width: 200, ...cellStyle }}>{row.label}</div>
               <div style={{ width: 140, ...cellStyle }}>{row.service_parts.length}</div>
               <div style={{ width: 160, ...cellStyle }}>{row.subscription_addons.length}</div>
-              <div className="d-flex" style={{ width: 140, gap: 10 }}>
-                <button type="button" onClick={() => openEdit(row)} style={{ background: 'transparent', border: 'none', color: '#181818', fontSize: 12, fontWeight: 600, padding: 0 }}>
-                  Edit
-                </button>
+              <div style={{ width: 140 }} onClick={(e) => e.stopPropagation()}>
                 <button
                   type="button"
                   onClick={() => handleDelete(row.id)}
                   disabled={deletingId === row.id}
-                  style={{ background: 'transparent', border: 'none', color: '#E53935', fontSize: 12, fontWeight: 600, padding: 0, opacity: deletingId === row.id ? 0.6 : 1 }}
+                  style={{
+                    background: '#FF5E5E',
+                    color: '#FFFFFF',
+                    border: 'none',
+                    borderRadius: 5,
+                    padding: '6px 14px',
+                    fontSize: 11,
+                    fontWeight: 600,
+                    letterSpacing: '-0.03em',
+                    opacity: deletingId === row.id ? 0.6 : 1,
+                  }}
                 >
                   {deletingId === row.id ? 'Deleting…' : 'Delete'}
                 </button>

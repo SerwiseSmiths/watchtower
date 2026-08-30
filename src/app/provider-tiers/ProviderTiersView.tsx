@@ -137,65 +137,76 @@ export default function ProviderTiersView({ tiers }: { tiers: NexusProviderTier[
         </div>
 
         {showForm && (
-          <div style={{ background: '#FFFFFF', border: '1px solid #E5E5E5', borderRadius: 5, padding: 20, marginBottom: 20 }}>
-            <div className="row g-3 mb-3">
-              <div className="col-4">
-                <div style={fieldLabelStyle}>Name</div>
-                <input type="text" value={form.name} onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))} style={inputStyle} placeholder="Gold" />
+          <div
+            onClick={closeForm}
+            style={{ position: 'fixed', inset: 0, zIndex: 50, background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+          >
+            <div
+              onClick={(e) => e.stopPropagation()}
+              style={{ width: 520, maxHeight: '90vh', overflowY: 'auto', background: '#FFFFFF', borderRadius: 10, padding: '20px 25px' }}
+            >
+              <div className="d-flex justify-content-between align-items-center mb-3">
+                <span style={{ fontSize: 22, fontWeight: 700, letterSpacing: '-0.03em', color: '#181818' }}>
+                  {editingId ? 'Edit Provider Tier' : 'Add Provider Tier'}
+                </span>
+                <button type="button" onClick={closeForm} style={{ background: 'none', border: 'none', fontSize: 18, color: '#B7B7B7', lineHeight: 1 }}>
+                  ×
+                </button>
               </div>
-              <div className="col-2">
-                <div style={fieldLabelStyle}>Order</div>
-                <input type="number" value={form.order} onChange={(e) => setForm((p) => ({ ...p, order: e.target.value }))} style={inputStyle} />
-              </div>
-              <div className="col-3">
-                <div style={fieldLabelStyle}>Badge Color</div>
-                <input type="text" value={form.color} onChange={(e) => setForm((p) => ({ ...p, color: e.target.value }))} style={inputStyle} placeholder="#D4AF37" />
-              </div>
-              <div className="col-3">
-                <div style={fieldLabelStyle}>Active</div>
-                <select
-                  value={form.isActive ? 'true' : 'false'}
-                  onChange={(e) => setForm((p) => ({ ...p, isActive: e.target.value === 'true' }))}
-                  style={inputStyle}
-                >
-                  <option value="true">Active</option>
-                  <option value="false">Inactive</option>
-                </select>
-              </div>
-            </div>
-            <div className="row g-3 mb-3">
-              <div className="col-12">
-                <div style={fieldLabelStyle}>Description (Optional)</div>
-                <textarea
-                  value={form.description}
-                  onChange={(e) => setForm((p) => ({ ...p, description: e.target.value }))}
-                  rows={2}
-                  style={{ ...inputStyle, resize: 'none' }}
-                />
-              </div>
-            </div>
 
-            {error && (
-              <div className="mb-3" style={{ color: '#E53935', fontSize: 12, fontWeight: 600 }}>
-                {error}
+              <div className="row g-3 mb-3">
+                <div className="col-6">
+                  <div style={fieldLabelStyle}>Name</div>
+                  <input type="text" value={form.name} onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))} style={inputStyle} placeholder="Gold" />
+                </div>
+                <div className="col-3">
+                  <div style={fieldLabelStyle}>Order</div>
+                  <input type="number" value={form.order} onChange={(e) => setForm((p) => ({ ...p, order: e.target.value }))} style={inputStyle} />
+                </div>
+                <div className="col-3">
+                  <div style={fieldLabelStyle}>Active</div>
+                  <select
+                    value={form.isActive ? 'true' : 'false'}
+                    onChange={(e) => setForm((p) => ({ ...p, isActive: e.target.value === 'true' }))}
+                    style={inputStyle}
+                  >
+                    <option value="true">Active</option>
+                    <option value="false">Inactive</option>
+                  </select>
+                </div>
               </div>
-            )}
+              <div className="row g-3 mb-3">
+                <div className="col-6">
+                  <div style={fieldLabelStyle}>Badge Color</div>
+                  <input type="text" value={form.color} onChange={(e) => setForm((p) => ({ ...p, color: e.target.value }))} style={inputStyle} placeholder="#D4AF37" />
+                </div>
+              </div>
+              <div className="row g-3 mb-3">
+                <div className="col-12">
+                  <div style={fieldLabelStyle}>Description (Optional)</div>
+                  <textarea
+                    value={form.description}
+                    onChange={(e) => setForm((p) => ({ ...p, description: e.target.value }))}
+                    rows={2}
+                    style={{ ...inputStyle, resize: 'none' }}
+                  />
+                </div>
+              </div>
 
-            <div className="d-flex" style={{ gap: 10 }}>
+              {error && (
+                <div className="mb-3" style={{ color: '#E53935', fontSize: 12, fontWeight: 600 }}>
+                  {error}
+                </div>
+              )}
+
               <button
                 type="button"
                 onClick={handleSave}
                 disabled={saving}
-                style={{ background: '#181818', color: '#FFFFFF', border: 'none', borderRadius: 6, padding: '10px 20px', fontSize: 13, fontWeight: 600, letterSpacing: '-0.03em', opacity: saving ? 0.6 : 1 }}
+                className="w-100"
+                style={{ background: '#181818', color: '#FFFFFF', border: 'none', borderRadius: 6, padding: '13px', fontSize: 14, fontWeight: 600, letterSpacing: '-0.03em', opacity: saving ? 0.6 : 1 }}
               >
-                {saving ? 'Saving…' : 'Save'}
-              </button>
-              <button
-                type="button"
-                onClick={closeForm}
-                style={{ background: 'transparent', color: '#454545', border: '1px solid #E5E5E5', borderRadius: 6, padding: '10px 20px', fontSize: 13, fontWeight: 600, letterSpacing: '-0.03em' }}
-              >
-                Cancel
+                {saving ? 'Saving…' : 'Save & Continue'}
               </button>
             </div>
           </div>
@@ -220,7 +231,8 @@ export default function ProviderTiersView({ tiers }: { tiers: NexusProviderTier[
             <div
               key={tier.id}
               className="d-flex align-items-center"
-              style={{ padding: '0 13px', height: 40, borderBottom: i === tiers.length - 1 ? 'none' : '1px solid #E5E5E5' }}
+              style={{ padding: '0 13px', height: 40, borderBottom: i === tiers.length - 1 ? 'none' : '1px solid #E5E5E5', cursor: 'pointer' }}
+              onClick={() => openEdit(tier)}
             >
               <div className="d-flex align-items-center" style={{ width: 220, gap: 9, ...cellStyle }}>
                 <span style={{ width: 10, height: 10, borderRadius: '50%', background: tier.color ?? '#B7B7B7', flexShrink: 0 }} />
@@ -229,15 +241,22 @@ export default function ProviderTiersView({ tiers }: { tiers: NexusProviderTier[
               <div style={{ width: 80, ...cellStyle }}>{tier.order}</div>
               <div style={{ width: 90, ...cellStyle, color: tier.isActive ? '#0C8D6E' : '#B7B7B7' }}>{tier.isActive ? 'Active' : 'Inactive'}</div>
               <div style={{ width: 300, ...cellStyle, fontWeight: 400, color: '#454545' }}>{tier.description ?? '—'}</div>
-              <div className="d-flex" style={{ width: 140, gap: 10 }}>
-                <button type="button" onClick={() => openEdit(tier)} style={{ background: 'transparent', border: 'none', color: '#181818', fontSize: 12, fontWeight: 600, padding: 0 }}>
-                  Edit
-                </button>
+              <div style={{ width: 140 }} onClick={(e) => e.stopPropagation()}>
                 <button
                   type="button"
                   onClick={() => handleDelete(tier.id)}
                   disabled={deletingId === tier.id}
-                  style={{ background: 'transparent', border: 'none', color: '#E53935', fontSize: 12, fontWeight: 600, padding: 0, opacity: deletingId === tier.id ? 0.6 : 1 }}
+                  style={{
+                    background: '#FF5E5E',
+                    color: '#FFFFFF',
+                    border: 'none',
+                    borderRadius: 5,
+                    padding: '6px 14px',
+                    fontSize: 11,
+                    fontWeight: 600,
+                    letterSpacing: '-0.03em',
+                    opacity: deletingId === tier.id ? 0.6 : 1,
+                  }}
                 >
                   {deletingId === tier.id ? 'Deleting…' : 'Delete'}
                 </button>
