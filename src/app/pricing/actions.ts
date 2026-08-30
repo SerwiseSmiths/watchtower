@@ -4,6 +4,13 @@ import { revalidatePath } from 'next/cache';
 import { prisma } from '@/lib/db/prisma';
 import { uploadToCloudinary } from '@/lib/media/cloudinary';
 import { createEntity, updateEntity, deleteEntity } from '@/lib/db/entity-repository';
+import {
+  listPricingForTier,
+  upsertPartPricing,
+  resetPartPricing,
+  type ServicePartTierPricing,
+  type UpsertPartPricingInput,
+} from '@/lib/nexus/servicePartPricing';
 
 const PLAN_UID = 'api::subscription-plan.subscription-plan';
 const ADDON_UID = 'api::subscription-addon.subscription-addon';
@@ -147,4 +154,18 @@ export async function uploadPricingImageAction(formData: FormData): Promise<Uplo
   });
 
   return { id: created.id, url: created.url ?? uploaded.url, name: created.name ?? file.name };
+}
+
+// ─── Group (Provider Tier) pricing overrides ───────────────────────────────
+
+export async function fetchTierPricingAction(providerTierId: string): Promise<ServicePartTierPricing[]> {
+  return listPricingForTier(providerTierId);
+}
+
+export async function upsertPartPricingAction(input: UpsertPartPricingInput): Promise<ServicePartTierPricing> {
+  return upsertPartPricing(input);
+}
+
+export async function resetPartPricingAction(servicePartId: string, providerTierId: string): Promise<void> {
+  await resetPartPricing(servicePartId, providerTierId);
 }

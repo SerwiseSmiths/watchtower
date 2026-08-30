@@ -1,9 +1,11 @@
 'use client';
 
-import { useRef, useState, type ChangeEvent, type CSSProperties } from 'react';
+import { useEffect, useRef, useState, type ChangeEvent, type CSSProperties } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { dmSans } from '../tickets/fonts';
 import RootSidebar from '@/components/RootSidebar';
+import type { NexusProviderTier } from '@/lib/nexus/providerTiers';
+import type { ServicePartTierPricing } from '@/lib/nexus/servicePartPricing';
 import {
   createSubscriptionPlanAction,
   updateSubscriptionPlanAction,
@@ -15,6 +17,9 @@ import {
   updateServicePartAction,
   deleteServicePartAction,
   uploadPricingImageAction,
+  fetchTierPricingAction,
+  upsertPartPricingAction,
+  resetPartPricingAction,
   type SubscriptionPlanInput,
   type SubscriptionAddonInput,
   type ServicePartInput,
@@ -64,6 +69,7 @@ export interface SubscriptionAddonRow {
 
 export interface ServicePartRow {
   id: number;
+  documentId: string;
   name: string;
   category: string;
   type: string;
@@ -670,46 +676,69 @@ function AddonsTab({ addons, deviceTypeOptions }: { addons: SubscriptionAddonRow
 
 const EMPTY_PART_FORM: ServicePartInput = { name: '', category: SERVICE_PART_CATEGORIES[0], type: SERVICE_PART_TYPES[0], face_value: 0, provider_cut: 0, expense: 0, description: '', visibility: 'ACTIVE', device_types: [] };
 
-function partToForm(row: ServicePartRow): ServicePartInput {
-  return {
-    name: row.name,
-    category: row.category,
-    type: row.type,
-    face_value: row.face_value,
-    provider_cut: row.provider_cut ?? 0,
-    expense: row.expense ?? 0,
-    description: row.description ?? '',
-    visibility: row.visibility,
-    device_types: row.device_types.map((d) => d.id),
-  };
+interface ResolvedPricing {
+  salesPrice: number;
+  expense: number;
+  labour: number;
+  maxDiscount: number;
+  isDefault: boolean;
 }
 
-function PartsTab({ parts, deviceTypeOptions }: { parts: ServicePartRow[]; deviceTypeOptions: DeviceTypeOption[] }) {
-  const router = useRouter();
-  const [editingId, setEditingId] = useState<number | null>(null);
-  const [creating, setCreating] = useState(false);
-  const [form, setForm] = useState<ServicePartInput>(EMPTY_PART_FORM);
+function resolvePricing(row: ServicePartRow, override: ServicePartTierPricing | undefined): ResolvedPricing {
+  if (override) {
+    return { salesPrice: override.salesPrice, expense: override.expense ?? 0, labour: override.labour ?? 0, maxDiscount: override.maxDiscount ?? 0, isDefault: false };
+  }
+  return { salesPrice: row.face_value, expense: row.expense ?? 0, labour: row.provider_cut ?? 0, maxDiscount: 0, isDefault: true };
+}
+
+// Uncontrolled + `key`-reset (not a controlled input synced via effect): the input owns its
+// own text while typing, and only resets to the resolved `value` when the parent remounts it
+// (pass `key={value}` from the caller) — e.g. after a save completes or the Group changes.
+function EditableMoneyCell({ value, isDefault, onSave }: { value: number; isDefault: boolean; onSave: (next: number) => void }) {
+  return (
+    <div className="d-flex flex-column align-items-center" style={{ width: '100%' }}>
+      <div className="d-flex align-items-center" style={{ gap: 2 }}>
+        <span style={{ fontSize: 10, fontWeight: 600, color: '#181818' }}>₹</span>
+        <input
+          type="number"
+          defaultValue={value}
+          onBlur={(e) => {
+            const parsed = Number(e.target.value);
+            if (!Number.isNaN(parsed) && parsed !== value) onSave(parsed);
+          }}
+          style={{ width: 56, border: 'none', background: 'transparent', fontSize: 10, fontWeight: 600, color: '#181818', textAlign: 'center', outline: 'none' }}
+        />
+      </div>
+      {isDefault && <span style={{ fontSize: 8, fontWeight: 600, color: '#B7B7B7' }}>Default</span>}
+    </div>
+  );
+}
+
+function PartDetailDrawer({
+  part,
+  deviceTypeOptions,
+  onClose,
+  onSaved,
+}: {
+  part: ServicePartRow;
+  deviceTypeOptions: DeviceTypeOption[];
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const [form, setForm] = useState<ServicePartInput>({
+    name: part.name,
+    category: part.category,
+    type: part.type,
+    face_value: part.face_value,
+    provider_cut: part.provider_cut ?? 0,
+    expense: part.expense ?? 0,
+    description: part.description ?? '',
+    visibility: part.visibility,
+    device_types: part.device_types.map((d) => d.id),
+  });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [deletingId, setDeletingId] = useState<number | null>(null);
-
-  function openCreate() {
-    setEditingId(null);
-    setCreating(true);
-    setForm(EMPTY_PART_FORM);
-    setError(null);
-  }
-  function openEdit(row: ServicePartRow) {
-    setCreating(false);
-    setEditingId(row.id);
-    setForm(partToForm(row));
-    setError(null);
-  }
-  function close() {
-    setCreating(false);
-    setEditingId(null);
-    setError(null);
-  }
+  const [deleting, setDeleting] = useState(false);
 
   async function handleSave() {
     if (!form.name.trim()) {
@@ -719,10 +748,175 @@ function PartsTab({ parts, deviceTypeOptions }: { parts: ServicePartRow[]; devic
     setSaving(true);
     setError(null);
     try {
-      if (editingId) await updateServicePartAction(editingId, form);
-      else await createServicePartAction(form);
+      await updateServicePartAction(part.id, form);
+      onSaved();
+      onClose();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to save');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function handleDelete() {
+    setDeleting(true);
+    setError(null);
+    try {
+      await deleteServicePartAction(part.id);
+      onSaved();
+      onClose();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to delete');
+      setDeleting(false);
+    }
+  }
+
+  return (
+    <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 50, background: 'rgba(0,0,0,0.45)' }}>
+      <div
+        onClick={(e) => e.stopPropagation()}
+        style={{ position: 'absolute', top: 0, right: 0, bottom: 0, width: 460, maxWidth: '96vw', background: '#FFFFFF', overflowY: 'auto', padding: '20px 25px' }}
+      >
+        <div className="d-flex justify-content-between align-items-center mb-3">
+          <span style={{ fontSize: 20, fontWeight: 700, letterSpacing: '-0.03em', color: '#181818' }}>Part Details</span>
+          <button type="button" onClick={onClose} style={{ background: 'none', border: 'none', fontSize: 18, color: '#B7B7B7', lineHeight: 1 }}>
+            ×
+          </button>
+        </div>
+
+        <div className="d-flex flex-column" style={{ gap: 12 }}>
+          <div>
+            <div style={fieldLabelStyle}>Name</div>
+            <input type="text" value={form.name} onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))} style={inputStyle} />
+          </div>
+          <div>
+            <div style={fieldLabelStyle}>Description</div>
+            <textarea value={form.description ?? ''} onChange={(e) => setForm((p) => ({ ...p, description: e.target.value }))} rows={5} style={{ ...inputStyle, resize: 'none' }} />
+          </div>
+          <div className="row g-3">
+            <div className="col-6">
+              <div style={fieldLabelStyle}>Category</div>
+              <select value={form.category} onChange={(e) => setForm((p) => ({ ...p, category: e.target.value }))} style={inputStyle}>
+                {SERVICE_PART_CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
+              </select>
+            </div>
+            <div className="col-6">
+              <div style={fieldLabelStyle}>Type</div>
+              <select value={form.type} onChange={(e) => setForm((p) => ({ ...p, type: e.target.value }))} style={inputStyle}>
+                {SERVICE_PART_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
+              </select>
+            </div>
+            <div className="col-6">
+              <div style={fieldLabelStyle}>Visibility</div>
+              <select value={form.visibility} onChange={(e) => setForm((p) => ({ ...p, visibility: e.target.value }))} style={inputStyle}>
+                {SERVICE_PART_VISIBILITY.map((v) => <option key={v} value={v}>{v}</option>)}
+              </select>
+            </div>
+          </div>
+          <div className="row g-3">
+            <div className="col-4">
+              <div style={fieldLabelStyle}>Default Sales Price</div>
+              <input type="number" value={form.face_value} onChange={(e) => setForm((p) => ({ ...p, face_value: Number(e.target.value) }))} style={inputStyle} />
+            </div>
+            <div className="col-4">
+              <div style={fieldLabelStyle}>Default Expense</div>
+              <input type="number" value={form.expense ?? 0} onChange={(e) => setForm((p) => ({ ...p, expense: Number(e.target.value) }))} style={inputStyle} />
+            </div>
+            <div className="col-4">
+              <div style={fieldLabelStyle}>Default Labour</div>
+              <input type="number" value={form.provider_cut ?? 0} onChange={(e) => setForm((p) => ({ ...p, provider_cut: Number(e.target.value) }))} style={inputStyle} />
+            </div>
+          </div>
+          <div style={{ fontSize: 10, color: '#B7B7B7' }}>
+            These are the fallback values used for any Group with no pricing override set for this part.
+          </div>
+
+          <RelationChecklist
+            label="Device Types"
+            options={deviceTypeOptions}
+            selectedIds={form.device_types ?? []}
+            onChange={(device_types) => setForm((p) => ({ ...p, device_types }))}
+          />
+        </div>
+
+        {error && <div className="mt-3" style={{ color: '#E53935', fontSize: 12, fontWeight: 600 }}>{error}</div>}
+
+        <div className="d-flex mt-4" style={{ gap: 10 }}>
+          <button
+            type="button"
+            onClick={handleSave}
+            disabled={saving}
+            className="flex-grow-1"
+            style={{ background: '#181818', color: '#FFFFFF', border: 'none', borderRadius: 6, padding: '12px', fontSize: 13, fontWeight: 600, opacity: saving ? 0.6 : 1 }}
+          >
+            {saving ? 'Saving…' : 'Save'}
+          </button>
+          <button type="button" onClick={handleDelete} disabled={deleting} style={{ ...ctaButtonStyle('#FF5E5E'), padding: '12px 18px', opacity: deleting ? 0.6 : 1 }}>
+            {deleting ? 'Deleting…' : 'Delete'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function PartsTab({
+  parts,
+  deviceTypeOptions,
+  providerTiers,
+}: {
+  parts: ServicePartRow[];
+  deviceTypeOptions: DeviceTypeOption[];
+  providerTiers: NexusProviderTier[];
+}) {
+  const router = useRouter();
+  const [creating, setCreating] = useState(false);
+  const [form, setForm] = useState<ServicePartInput>(EMPTY_PART_FORM);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [detailPart, setDetailPart] = useState<ServicePartRow | null>(null);
+
+  const [selectedTierId, setSelectedTierId] = useState<string>(providerTiers[0]?.id ?? '');
+  const [selectedDeviceType, setSelectedDeviceType] = useState<number | 'all'>('all');
+  const [pricingMap, setPricingMap] = useState<Map<string, ServicePartTierPricing>>(new Map());
+  const [collapsed, setCollapsed] = useState<Set<number>>(new Set());
+
+  useEffect(() => {
+    if (!selectedTierId) {
+      setPricingMap(new Map());
+      return;
+    }
+    let cancelled = false;
+    fetchTierPricingAction(selectedTierId).then((list) => {
+      if (cancelled) return;
+      setPricingMap(new Map(list.map((p) => [p.servicePartId, p])));
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedTierId]);
+
+  function openCreate() {
+    setCreating(true);
+    setForm(EMPTY_PART_FORM);
+    setError(null);
+  }
+  function closeCreate() {
+    setCreating(false);
+    setError(null);
+  }
+
+  async function handleCreate() {
+    if (!form.name.trim()) {
+      setError('Name is required');
+      return;
+    }
+    setSaving(true);
+    setError(null);
+    try {
+      await createServicePartAction(form);
       router.refresh();
-      close();
+      closeCreate();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to save service part');
     } finally {
@@ -730,20 +924,46 @@ function PartsTab({ parts, deviceTypeOptions }: { parts: ServicePartRow[]; devic
     }
   }
 
-  async function handleDelete(id: number) {
-    setDeletingId(id);
-    setError(null);
-    try {
-      await deleteServicePartAction(id);
-      router.refresh();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to delete service part');
-    } finally {
-      setDeletingId(null);
-    }
+  async function savePricingField(row: ServicePartRow, patch: Partial<Pick<ResolvedPricing, 'salesPrice' | 'expense' | 'labour' | 'maxDiscount'>>) {
+    if (!selectedTierId) return;
+    const current = resolvePricing(row, pricingMap.get(row.documentId));
+    const next = { ...current, ...patch };
+    const saved = await upsertPartPricingAction({
+      servicePartId: row.documentId,
+      providerTierId: selectedTierId,
+      salesPrice: next.salesPrice,
+      expense: next.expense,
+      labour: next.labour,
+      maxDiscount: next.maxDiscount,
+    });
+    setPricingMap((prev) => new Map(prev).set(row.documentId, saved));
   }
 
-  const showForm = creating || editingId !== null;
+  async function resetPricingForRow(row: ServicePartRow) {
+    if (!selectedTierId) return;
+    await resetPartPricingAction(row.documentId, selectedTierId);
+    setPricingMap((prev) => {
+      const next = new Map(prev);
+      next.delete(row.documentId);
+      return next;
+    });
+  }
+
+  function toggleCollapsed(deviceTypeId: number) {
+    setCollapsed((prev) => {
+      const next = new Set(prev);
+      if (next.has(deviceTypeId)) next.delete(deviceTypeId);
+      else next.add(deviceTypeId);
+      return next;
+    });
+  }
+
+  const sections = deviceTypeOptions
+    .filter((dt) => selectedDeviceType === 'all' || selectedDeviceType === dt.id)
+    .map((dt) => ({ deviceType: dt, rows: parts.filter((p) => p.device_types.some((x) => x.id === dt.id)) }))
+    .filter((section) => section.rows.length > 0);
+
+  const colHeaderStyle: CSSProperties = { ...labelStyle, textAlign: 'center' };
 
   return (
     <>
@@ -753,8 +973,8 @@ function PartsTab({ parts, deviceTypeOptions }: { parts: ServicePartRow[]; devic
         </button>
       </div>
 
-      {showForm && (
-        <Modal title={editingId ? 'Edit Service Part' : 'Add Service Part'} onClose={close}>
+      {creating && (
+        <Modal title="Add Service Part" onClose={closeCreate}>
           <div className="row g-3 mb-3">
             <div className="col-6">
               <div style={fieldLabelStyle}>Name</div>
@@ -773,15 +993,15 @@ function PartsTab({ parts, deviceTypeOptions }: { parts: ServicePartRow[]; devic
               </select>
             </div>
             <div className="col-4">
-              <div style={fieldLabelStyle}>Face Value</div>
+              <div style={fieldLabelStyle}>Default Sales Price</div>
               <input type="number" value={form.face_value} onChange={(e) => setForm((p) => ({ ...p, face_value: Number(e.target.value) }))} style={inputStyle} />
             </div>
             <div className="col-4">
-              <div style={fieldLabelStyle}>Provider Cut</div>
+              <div style={fieldLabelStyle}>Default Labour</div>
               <input type="number" value={form.provider_cut ?? 0} onChange={(e) => setForm((p) => ({ ...p, provider_cut: Number(e.target.value) }))} style={inputStyle} />
             </div>
             <div className="col-4">
-              <div style={fieldLabelStyle}>Expense</div>
+              <div style={fieldLabelStyle}>Default Expense</div>
               <input type="number" value={form.expense ?? 0} onChange={(e) => setForm((p) => ({ ...p, expense: Number(e.target.value) }))} style={inputStyle} />
             </div>
             <div className="col-6">
@@ -801,36 +1021,140 @@ function PartsTab({ parts, deviceTypeOptions }: { parts: ServicePartRow[]; devic
           </div>
 
           {error && <div className="mb-3" style={{ color: '#E53935', fontSize: 12, fontWeight: 600 }}>{error}</div>}
-          <SaveButton saving={saving} onClick={handleSave} />
+          <SaveButton saving={saving} onClick={handleCreate} />
         </Modal>
       )}
 
-      <div style={{ background: '#FFFFFF', border: '1px solid #E5E5E5', borderRadius: 5, overflow: 'hidden' }}>
-        <div className="d-flex align-items-center" style={{ padding: '0 13px', height: 35, borderBottom: '1px solid #E5E5E5' }}>
-          <div style={{ width: 220, ...labelStyle }}>Name</div>
-          <div style={{ width: 160, ...labelStyle }}>Category</div>
-          <div style={{ width: 100, ...labelStyle }}>Type</div>
-          <div style={{ width: 100, ...labelStyle }}>Face Value</div>
-          <div style={{ width: 100, ...labelStyle }}>Visibility</div>
-          <div style={{ width: 140, ...labelStyle }}>Actions</div>
+      {/* Filter row */}
+      <div className="d-flex align-items-center mb-3" style={{ gap: 12 }}>
+        <div>
+          <div style={fieldLabelStyle}>Group</div>
+          <select value={selectedTierId} onChange={(e) => setSelectedTierId(e.target.value)} style={inputStyle}>
+            {providerTiers.length === 0 && <option value="">No groups yet</option>}
+            {providerTiers.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
+          </select>
         </div>
-        {parts.length === 0 && <div className="d-flex align-items-center justify-content-center" style={{ height: 80, ...labelStyle }}>No service parts yet.</div>}
-        {parts.map((row, i) => (
-          <div key={row.id} className="d-flex align-items-center" style={{ padding: '0 13px', height: 44, borderBottom: i === parts.length - 1 ? 'none' : '1px solid #E5E5E5', cursor: 'pointer' }} onClick={() => openEdit(row)}>
-            <div style={{ width: 220, ...cellStyle }}>{row.name}</div>
-            <div style={{ width: 160, ...cellStyle, fontWeight: 400 }}>{row.category}</div>
-            <div style={{ width: 100, ...cellStyle, fontWeight: 400 }}>{row.type}</div>
-            <div style={{ width: 100, ...cellStyle }}>₹{row.face_value}</div>
-            <div style={{ width: 100, ...cellStyle, color: row.visibility === 'ACTIVE' ? '#0C8D6E' : row.visibility === 'DISCONTINUED' ? '#E53935' : '#B7B7B7' }}>{row.visibility}</div>
-            <div style={{ width: 140 }} onClick={(e) => e.stopPropagation()}>
-              <button type="button" onClick={() => handleDelete(row.id)} disabled={deletingId === row.id} style={{ ...ctaButtonStyle('#FF5E5E'), opacity: deletingId === row.id ? 0.6 : 1 }}>
-                {deletingId === row.id ? 'Deleting…' : 'Delete'}
-              </button>
-            </div>
-          </div>
-        ))}
+        <div>
+          <div style={fieldLabelStyle}>Device Type</div>
+          <select
+            value={selectedDeviceType === 'all' ? 'all' : String(selectedDeviceType)}
+            onChange={(e) => setSelectedDeviceType(e.target.value === 'all' ? 'all' : Number(e.target.value))}
+            style={inputStyle}
+          >
+            <option value="all">All</option>
+            {deviceTypeOptions.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
+          </select>
+        </div>
       </div>
-      {error && !showForm && <div className="mt-3" style={{ color: '#E53935', fontSize: 12, fontWeight: 600 }}>{error}</div>}
+
+      <div className="d-flex flex-column" style={{ gap: 12 }}>
+        {sections.length === 0 && (
+          <div style={{ background: '#FFFFFF', borderRadius: 5, padding: 40, textAlign: 'center', ...labelStyle }}>No service parts match this filter.</div>
+        )}
+
+        {sections.map(({ deviceType, rows }) => {
+          const isCollapsed = collapsed.has(deviceType.id);
+          return (
+            <div key={deviceType.id} style={{ background: '#FFFFFF', borderRadius: 5, overflow: 'hidden' }}>
+              <div
+                onClick={() => toggleCollapsed(deviceType.id)}
+                className="d-flex align-items-center justify-content-between"
+                style={{ background: '#CED9E4', padding: '0 15px', height: 35, cursor: 'pointer' }}
+              >
+                <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: '-0.03em', color: '#181818' }}>{deviceType.name}</span>
+                <span style={{ fontSize: 10, color: '#181818' }}>{isCollapsed ? '▸' : '▾'}</span>
+              </div>
+
+              {!isCollapsed && (
+                <>
+                  <div className="d-flex align-items-center" style={{ padding: '0 15px', height: 35, borderBottom: '1px solid #E5E5E5' }}>
+                    <div style={{ width: 220, ...labelStyle }}>Particulars</div>
+                    <div style={{ width: 90, ...colHeaderStyle }}>Status</div>
+                    <div style={{ width: 90, ...colHeaderStyle }}>Sales Price</div>
+                    <div style={{ width: 90, ...colHeaderStyle }}>Expense</div>
+                    <div style={{ width: 90, ...colHeaderStyle }}>Labour</div>
+                    <div style={{ width: 90, ...colHeaderStyle }}>Gross Profit</div>
+                    <div style={{ width: 90, ...colHeaderStyle }}>Max Discount</div>
+                    <div style={{ width: 90, ...colHeaderStyle }}>Type</div>
+                    <div style={{ width: 60 }} />
+                  </div>
+
+                  {rows.map((row, i) => {
+                    const pricing = resolvePricing(row, pricingMap.get(row.documentId));
+                    const grossProfit = pricing.salesPrice - pricing.expense - pricing.labour;
+                    return (
+                      <div
+                        key={row.id}
+                        className="d-flex align-items-center"
+                        style={{ padding: '0 15px', height: 44, borderBottom: i === rows.length - 1 ? 'none' : '1px solid #E5E5E5' }}
+                      >
+                        <div
+                          style={{ width: 220, ...cellStyle, cursor: 'pointer' }}
+                          onClick={() => setDetailPart(row)}
+                        >
+                          {row.name}
+                        </div>
+                        <div style={{ width: 90 }} className="d-flex justify-content-center">
+                          <span
+                            style={{
+                              background: row.visibility === 'ACTIVE' ? '#D6FAB4' : '#E5E5E5',
+                              color: row.visibility === 'ACTIVE' ? '#007637' : '#454545',
+                              border: `1px solid ${row.visibility === 'ACTIVE' ? '#007637' : '#454545'}`,
+                              borderRadius: 4,
+                              padding: '2px 8px',
+                              fontSize: 8,
+                              fontWeight: 500,
+                            }}
+                          >
+                            {row.visibility === 'ACTIVE' ? 'Active' : row.visibility === 'DRAFT' ? 'Draft' : 'Discontinued'}
+                          </span>
+                        </div>
+                        <div style={{ width: 90 }}>
+                          <EditableMoneyCell key={pricing.salesPrice} value={pricing.salesPrice} isDefault={pricing.isDefault} onSave={(v) => savePricingField(row, { salesPrice: v })} />
+                        </div>
+                        <div style={{ width: 90 }}>
+                          <EditableMoneyCell key={pricing.expense} value={pricing.expense} isDefault={pricing.isDefault} onSave={(v) => savePricingField(row, { expense: v })} />
+                        </div>
+                        <div style={{ width: 90 }}>
+                          <EditableMoneyCell key={pricing.labour} value={pricing.labour} isDefault={pricing.isDefault} onSave={(v) => savePricingField(row, { labour: v })} />
+                        </div>
+                        <div style={{ width: 90, ...cellStyle, textAlign: 'center' }}>₹{grossProfit.toFixed(2)}</div>
+                        <div style={{ width: 90 }}>
+                          <EditableMoneyCell key={pricing.maxDiscount} value={pricing.maxDiscount} isDefault={pricing.isDefault} onSave={(v) => savePricingField(row, { maxDiscount: v })} />
+                        </div>
+                        <div style={{ width: 90, ...cellStyle, fontWeight: 400, textAlign: 'center' }}>{row.type}</div>
+                        <div style={{ width: 60 }} className="d-flex justify-content-center">
+                          {!pricing.isDefault && (
+                            <button
+                              type="button"
+                              onClick={() => resetPricingForRow(row)}
+                              title="Reset to default price"
+                              style={{ background: 'none', border: 'none', fontSize: 9, fontWeight: 600, color: '#0D67CE', padding: 0 }}
+                            >
+                              Reset
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </>
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      {error && !creating && <div className="mt-3" style={{ color: '#E53935', fontSize: 12, fontWeight: 600 }}>{error}</div>}
+
+      {detailPart && (
+        <PartDetailDrawer
+          part={detailPart}
+          deviceTypeOptions={deviceTypeOptions}
+          onClose={() => setDetailPart(null)}
+          onSaved={() => router.refresh()}
+        />
+      )}
     </>
   );
 }
@@ -842,11 +1166,13 @@ export default function PricingView({
   addons,
   parts,
   deviceTypeOptions,
+  providerTiers,
 }: {
   plans: SubscriptionPlanRow[];
   addons: SubscriptionAddonRow[];
   parts: ServicePartRow[];
   deviceTypeOptions: DeviceTypeOption[];
+  providerTiers: NexusProviderTier[];
 }) {
   const searchParams = useSearchParams();
   const tab: Tab = (searchParams?.get('tab') as Tab | null) ?? 'plans';
@@ -862,7 +1188,7 @@ export default function PricingView({
 
         {tab === 'plans' && <PlansTab plans={plans} partOptions={partOptions} />}
         {tab === 'addons' && <AddonsTab addons={addons} deviceTypeOptions={deviceTypeOptions} />}
-        {tab === 'parts' && <PartsTab parts={parts} deviceTypeOptions={deviceTypeOptions} />}
+        {tab === 'parts' && <PartsTab parts={parts} deviceTypeOptions={deviceTypeOptions} providerTiers={providerTiers} />}
       </main>
     </div>
   );

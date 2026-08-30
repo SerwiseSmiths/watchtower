@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation';
 import { ROOT_SESSION_COOKIE_NAME, verifyRootSession } from '@/lib/auth/root-session';
 import { listEntities } from '@/lib/db/entity-repository';
 import { prisma } from '@/lib/db/prisma';
+import { listProviderTiers } from '@/lib/nexus/providerTiers';
 import PricingView, {
   type SubscriptionPlanRow,
   type SubscriptionAddonRow,
@@ -31,12 +32,15 @@ export default async function PricingPage() {
     orderBy: { label: 'asc' },
   });
 
+  const providerTiers = await listProviderTiers();
+
   return (
     <PricingView
       plans={plans.data as unknown as SubscriptionPlanRow[]}
       addons={addons.data as unknown as SubscriptionAddonRow[]}
       parts={parts.data as unknown as ServicePartRow[]}
       deviceTypeOptions={deviceTypes.map((d): DeviceTypeOption => ({ id: d.id, name: d.label ?? String(d.id) }))}
+      providerTiers={providerTiers}
     />
   );
 }
