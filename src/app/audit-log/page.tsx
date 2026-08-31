@@ -43,7 +43,21 @@ export default async function AuditLogPage({ searchParams }: { searchParams: Pro
     }),
   };
 
-  const [logs, total, modules, actors] = await sequentialFetch(where, page);
+  const [logs, total, modules, actors] = await Promise.all([
+    prisma.watchtower_audit_logs.findMany({
+      where,
+      orderBy: { created_at: 'desc' },
+      skip: (page - 1) * PAGE_SIZE,
+      take: PAGE_SIZE,
+    }),
+    prisma.watchtower_audit_logs.count({ where }),
+    prisma.watchtower_audit_logs.findMany({ distinct: ['module'], select: { module: true }, orderBy: { module: 'asc' } }),
+    prisma.watchtower_audit_logs.findMany({
+      distinct: ['actor_id'],
+      select: { actor_id: true, actor_name: true },
+      where: { actor_id: { not: null } },
+    }),
+  ]);
 
   return (
     <AuditLogView
@@ -56,23 +70,4 @@ export default async function AuditLogPage({ searchParams }: { searchParams: Pro
       filters={params}
     />
   );
-}
-
-// Sequenced, not Promise.all'd — same connection-pool discipline used everywhere else
-// in this app since the Device Types P2024 incident.
-async function sequentialFetch(where: Record<string, unknown>, page: number) {
-  const logs = await prisma.watchtower_audit_logs.findMany({
-    where,
-    orderBy: { created_at: 'desc' },
-    skip: (page - 1) * PAGE_SIZE,
-    take: PAGE_SIZE,
-  });
-  const total = await prisma.watchtower_audit_logs.count({ where });
-  const modules = await prisma.watchtower_audit_logs.findMany({ distinct: ['module'], select: { module: true }, orderBy: { module: 'asc' } });
-  const actors = await prisma.watchtower_audit_logs.findMany({
-    distinct: ['actor_id'],
-    select: { actor_id: true, actor_name: true },
-    where: { actor_id: { not: null } },
-  });
-  return [logs, total, modules, actors] as const;
 }

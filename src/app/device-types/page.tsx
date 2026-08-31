@@ -12,26 +12,25 @@ export default async function DeviceTypesPage() {
 
   if (!session) redirect('/');
 
-  // Sequenced, not Promise.all'd — the DB pool is capped at 5 connections and
-  // listEntities() already runs its own findMany+count in parallel internally.
-  // The two option lists query id/name directly (bypassing listEntities'
-  // relation hydration) since service_parts/subscription_addons both carry a
-  // device_types relation back — hydrating that for every row via
-  // listEntities would fan out into hundreds of concurrent queries and blow
-  // the pool (this is what caused the P2024 connection-pool timeout).
-  const deviceTypes = await listEntities('api::device-type.device-type', { sortField: 'label', pageSize: 200 });
-  const serviceParts = await prisma.service_parts.findMany({
-    where: { published_at: { not: null } },
-    select: { id: true, name: true },
-    orderBy: { name: 'asc' },
-    take: 500,
-  });
-  const subscriptionAddons = await prisma.subscription_addons.findMany({
-    where: { published_at: { not: null } },
-    select: { id: true, name: true },
-    orderBy: { name: 'asc' },
-    take: 500,
-  });
+  // The two option lists query id/name directly (bypassing listEntities' relation
+  // hydration) since service_parts/subscription_addons both carry a device_types relation
+  // back and we only need id+name for the picker here — no point paying for that hydration.
+  // Fetched concurrently: entity-repository's model() caps total in-flight DB queries.
+  const [deviceTypes, serviceParts, subscriptionAddons] = await Promise.all([
+    listEntities('api::device-type.device-type', { sortField: 'label', pageSize: 200 }),
+    prisma.service_parts.findMany({
+      where: { published_at: { not: null } },
+      select: { id: true, name: true },
+      orderBy: { name: 'asc' },
+      take: 500,
+    }),
+    prisma.subscription_addons.findMany({
+      where: { published_at: { not: null } },
+      select: { id: true, name: true },
+      orderBy: { name: 'asc' },
+      take: 500,
+    }),
+  ]);
 
   return (
     <DeviceTypesView

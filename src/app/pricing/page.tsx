@@ -22,17 +22,15 @@ export default async function PricingPage() {
 
   if (!session) redirect('/');
 
-  // Sequenced, not Promise.all'd — same connection-pool lesson from Device Types.
-  const plans = await listEntities(PLAN_UID, { sortField: 'sort_order', pageSize: 200 });
-  const addons = await listEntities(ADDON_UID, { sortField: 'sort_order', pageSize: 200 });
-  const parts = await listEntities(PART_UID, { sortField: 'name', pageSize: 200 });
-
-  const deviceTypes = await prisma.device_types.findMany({
-    select: { id: true, label: true },
-    orderBy: { label: 'asc' },
-  });
-
-  const providerTiers = await listProviderTiers();
+  // Concurrency across these is safe and fast — entity-repository's model() caps how many
+  // DB queries run at once regardless of how many top-level calls fan out concurrently.
+  const [plans, addons, parts, deviceTypes, providerTiers] = await Promise.all([
+    listEntities(PLAN_UID, { sortField: 'sort_order', pageSize: 200 }),
+    listEntities(ADDON_UID, { sortField: 'sort_order', pageSize: 200 }),
+    listEntities(PART_UID, { sortField: 'name', pageSize: 200 }),
+    prisma.device_types.findMany({ select: { id: true, label: true }, orderBy: { label: 'asc' } }),
+    listProviderTiers(),
+  ]);
 
   return (
     <PricingView

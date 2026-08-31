@@ -17,10 +17,69 @@ type PrismaModel = {
 
 const prismaAny = prisma as unknown as Record<string, PrismaModel>;
 
+/**
+ * Caps the number of Prisma queries in flight at once, regardless of how deeply nested
+ * the call site is (a single content-type row can fan out into many queries — media,
+ * components, and each component's own relations). Two failure modes without this:
+ *   - Unbounded concurrency (plain Promise.all) blows past the DB's connection_limit and
+ *     the pool times out (P2024) once a content type has more than a handful of rows
+ *     with relations/media.
+ *   - Full serialization (one query at a time) avoids that crash but is extremely slow
+ *     against a remote pooled DB (Neon) where every round trip pays real network
+ *     latency — a page hydrating dozens of rows this way can take over a minute.
+ * A small concurrency cap gets real parallelism back while staying under the pool limit.
+ */
+class Semaphore {
+  private active = 0;
+  private queue: (() => void)[] = [];
+
+  constructor(private readonly limit: number) {}
+
+  async acquire(): Promise<() => void> {
+    if (this.active < this.limit) {
+      this.active++;
+      return () => this.release();
+    }
+    return new Promise((resolve) => {
+      this.queue.push(() => {
+        this.active++;
+        resolve(() => this.release());
+      });
+    });
+  }
+
+  private release() {
+    this.active--;
+    const next = this.queue.shift();
+    if (next) next();
+  }
+}
+
+// One less than the DB's connection_limit (5) — leaves headroom for a concurrent
+// unrelated request on the same serverless instance.
+const dbSemaphore = new Semaphore(4);
+
+async function withDbLimit<T>(fn: () => Promise<T>): Promise<T> {
+  const release = await dbSemaphore.acquire();
+  try {
+    return await fn();
+  } finally {
+    release();
+  }
+}
+
 function model(tableName: string): PrismaModel {
   const m = prismaAny[tableName];
   if (!m) throw new Error(`No Prisma model for table "${tableName}" — did you run \`yarn prisma:pull\`?`);
-  return m;
+  return {
+    findMany: (args) => withDbLimit(() => m.findMany(args)),
+    findUnique: (args) => withDbLimit(() => m.findUnique(args)),
+    count: (args) => withDbLimit(() => m.count(args)),
+    create: (args) => withDbLimit(() => m.create(args)),
+    update: (args) => withDbLimit(() => m.update(args)),
+    delete: (args) => withDbLimit(() => m.delete(args)),
+    deleteMany: (args) => withDbLimit(() => m.deleteMany(args)),
+  };
 }
 
 async function hydrateMedia(ownerUid: string, ownerId: number, fieldName: string, multiple: boolean) {
@@ -239,14 +298,12 @@ export async function listEntities(contentTypeUid: string, options: ListOptions 
     model(schema.collectionName).count({ where }),
   ]);
 
-  // Sequenced, not Promise.all'd — hydrating a row with media/relation fields issues
-  // multiple queries per row, and fanning that out across every row at once can exceed
-  // the DB's connection pool for any content type with more than a handful of rows
-  // (this is what caused a P2024 "connection pool timeout" incident on Device Types).
-  const data: Row[] = [];
-  for (const row of rows) {
-    data.push(pickFields(await hydrateAttributes(schema.uid, schema.collectionName, row, schema.attributes), options.fields));
-  }
+  // Back to Promise.all — the per-query concurrency cap now lives in model() itself
+  // (see Semaphore/withDbLimit above), so fanning out here is safe and, unlike fully
+  // sequential row-by-row hydration, doesn't pay full network latency once per query.
+  const data = await Promise.all(
+    rows.map(async (row) => pickFields(await hydrateAttributes(schema.uid, schema.collectionName, row, schema.attributes), options.fields)),
+  );
 
   return {
     data,
