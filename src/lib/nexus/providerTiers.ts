@@ -21,7 +21,7 @@ export interface ProviderTierInput {
 }
 
 export async function listProviderTiers(): Promise<NexusProviderTier[]> {
-  const res = await nexusFetch('/provider-tiers');
+  const res = await nexusFetch('/provider-tiers', {}, { tags: ['provider-tiers'] });
   const body = await res.json();
   return body.data.tiers as NexusProviderTier[];
 }

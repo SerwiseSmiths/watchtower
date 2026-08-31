@@ -63,8 +63,10 @@ export interface NexusComplaint {
   quote: NexusQuote | null;
 }
 
+// Complaints change constantly from outside Watchtower too (radix providers advancing
+// stage), so this leans on the shorter time-based fallback rather than tag invalidation alone.
 export async function fetchAllComplaints(): Promise<NexusComplaint[]> {
-  const res = await nexusFetch('/complaint');
+  const res = await nexusFetch('/complaint', {}, { tags: ['complaints'], revalidate: 15 });
   const body = await res.json();
   return body.data.complaints as NexusComplaint[];
 }

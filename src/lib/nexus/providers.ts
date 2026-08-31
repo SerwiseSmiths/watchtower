@@ -86,7 +86,7 @@ export interface ProviderInput {
 /** Lists active providers for a reassignment picker — nexus's ADMIN-only /user/providers. */
 export async function listProviders(search?: string): Promise<NexusProvider[]> {
   const query = search ? `?search=${encodeURIComponent(search)}` : '';
-  const res = await nexusFetch(`/user/providers${query}`);
+  const res = await nexusFetch(`/user/providers${query}`, {}, { tags: ['providers'] });
   const body = await res.json();
   return body.data.providers as NexusProvider[];
 }
@@ -95,13 +95,13 @@ export async function listProviders(search?: string): Promise<NexusProvider[]> {
 export async function fetchAllProviders(search?: string): Promise<NexusProviderDetail[]> {
   const params = new URLSearchParams({ withStats: 'true' });
   if (search) params.set('search', search);
-  const res = await nexusFetch(`/user/providers?${params.toString()}`);
+  const res = await nexusFetch(`/user/providers?${params.toString()}`, {}, { tags: ['providers'] });
   const body = await res.json();
   return body.data.providers as NexusProviderDetail[];
 }
 
 export async function fetchProvider(id: string): Promise<NexusProviderDetail> {
-  const res = await nexusFetch(`/user/providers/${id}`);
+  const res = await nexusFetch(`/user/providers/${id}`, {}, { tags: ['providers', `provider:${id}`] });
   const body = await res.json();
   return body.data.provider as NexusProviderDetail;
 }

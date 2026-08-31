@@ -1,6 +1,6 @@
 'use server';
 
-import { revalidatePath } from 'next/cache';
+import { revalidatePath, updateTag } from 'next/cache';
 import {
   fetchCustomer,
   updateCustomer,
@@ -28,6 +28,8 @@ export async function updateCustomerAction(id: string, input: UpdateCustomerInpu
   const before = await fetchCustomer(id).catch(() => null);
   const customer = await updateCustomer(id, input);
   revalidatePath(`/customers/${id}`);
+  updateTag('customers');
+  updateTag(`customer:${id}`);
   await logAudit({
     module: 'customer',
     action: 'UPDATE',
@@ -42,6 +44,7 @@ export async function updateCustomerAction(id: string, input: UpdateCustomerInpu
 export async function createAddressAction(customerId: string, input: CustomerAddressInput): Promise<NexusCustomerAddress> {
   const address = await createCustomerAddress(customerId, input);
   revalidatePath(`/customers/${customerId}`);
+  updateTag(`customer:${customerId}`);
   await logAudit({
     module: 'customer-address',
     action: 'CREATE',
@@ -61,6 +64,7 @@ export async function updateAddressAction(
   const before = beforeCustomer?.addresses.find((a) => a.id === addressId) ?? null;
   const address = await updateCustomerAddress(customerId, addressId, input);
   revalidatePath(`/customers/${customerId}`);
+  updateTag(`customer:${customerId}`);
   await logAudit({
     module: 'customer-address',
     action: 'UPDATE',
@@ -75,11 +79,13 @@ export async function updateAddressAction(
 export async function archiveAddressAction(customerId: string, addressId: string): Promise<void> {
   await archiveCustomerAddress(customerId, addressId);
   revalidatePath(`/customers/${customerId}`);
+  updateTag(`customer:${customerId}`);
   await logAudit({ module: 'customer-address', action: 'UPDATE', entityId: addressId, changes: { isDeleted: { old: false, new: true } } });
 }
 
 export async function restoreAddressAction(customerId: string, addressId: string): Promise<void> {
   await restoreCustomerAddress(customerId, addressId);
   revalidatePath(`/customers/${customerId}`);
+  updateTag(`customer:${customerId}`);
   await logAudit({ module: 'customer-address', action: 'UPDATE', entityId: addressId, changes: { isDeleted: { old: true, new: false } } });
 }

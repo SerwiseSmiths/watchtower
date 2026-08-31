@@ -13,16 +13,31 @@ function getNexusJwtSecret(): string {
 }
 
 /** Nexus's `authorize` middleware only reads the JWT payload's role — no DB lookup — so a
- *  short-lived service token with role ADMIN is enough to call admin-only endpoints. */
+ *  short-lived service token with role ADMIN is enough to call admin-only endpoints.
+ *  Memoized for ~45s (well within the 1m expiry) so repeated calls in a short window
+ *  reuse the same signed token instead of paying jwt.sign() on every single request. */
+let cachedServiceToken: { token: string; expiresAt: number } | null = null;
+
 function signAdminServiceToken(): string {
-  return jwt.sign({ id: 'watchtower-admin', phoneNo: 'watchtower', role: 'ADMIN' }, getNexusJwtSecret(), {
+  const now = Date.now();
+  if (cachedServiceToken && cachedServiceToken.expiresAt > now) return cachedServiceToken.token;
+
+  const token = jwt.sign({ id: 'watchtower-admin', phoneNo: 'watchtower', role: 'ADMIN' }, getNexusJwtSecret(), {
     expiresIn: '1m',
   });
+  cachedServiceToken = { token, expiresAt: now + 45_000 };
+  return token;
 }
 
-export async function nexusFetch(path: string, init: RequestInit = {}): Promise<Response> {
-  console.log(getNexusApiUrl());
-  
+export interface NexusCacheOptions {
+  /** Tags for on-demand invalidation via updateTag — pass on reads only. */
+  tags?: string[];
+  /** Time-based fallback revalidation (seconds) so data self-heals even if a write from
+   *  outside Watchtower (radix, serwise) is never explicitly invalidated here. */
+  revalidate?: number;
+}
+
+export async function nexusFetch(path: string, init: RequestInit = {}, cacheOpts?: NexusCacheOptions): Promise<Response> {
   const res = await fetch(`${getNexusApiUrl()}${path}`, {
     ...init,
     headers: {
@@ -30,7 +45,9 @@ export async function nexusFetch(path: string, init: RequestInit = {}): Promise<
       Authorization: `Bearer ${signAdminServiceToken()}`,
       'x-app-id': 'watchtower',
     },
-    cache: 'no-store',
+    ...(cacheOpts
+      ? { next: { tags: cacheOpts.tags, revalidate: cacheOpts.revalidate ?? 30 } }
+      : { cache: 'no-store' }),
   });
 
   if (!res.ok) {

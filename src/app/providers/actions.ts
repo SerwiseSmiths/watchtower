@@ -1,6 +1,6 @@
 'use server';
 
-import { revalidatePath } from 'next/cache';
+import { revalidatePath, updateTag } from 'next/cache';
 import {
   createProvider,
   updateProvider,
@@ -29,6 +29,7 @@ export async function fetchProviderTiersAction(): Promise<NexusProviderTier[]> {
 export async function createProviderAction(input: ProviderInput): Promise<NexusProviderDetail> {
   const provider = await createProvider(input);
   revalidatePath('/providers');
+  updateTag('providers');
   await logAudit({ module: 'provider', action: 'CREATE', entityId: provider.id, entityLabel: providerLabel(provider), after: { ...provider } });
   return provider;
 }
@@ -40,6 +41,8 @@ export async function updateProviderAction(
   const before = await fetchProvider(id).catch(() => null);
   const provider = await updateProvider(id, input);
   revalidatePath('/providers');
+  updateTag('providers');
+  updateTag(`provider:${id}`);
   await logAudit({
     module: 'provider',
     action: 'UPDATE',
@@ -58,6 +61,8 @@ export async function searchAddressAction(query: string): Promise<AddressPredict
 export async function approveProviderBankAccountAction(id: string): Promise<NexusProviderBankAccount> {
   const bankAccount = await approveProviderBankAccount(id);
   revalidatePath('/providers');
+  updateTag('providers');
+  updateTag(`provider:${id}`);
   await logAudit({
     module: 'provider',
     action: 'UPDATE',

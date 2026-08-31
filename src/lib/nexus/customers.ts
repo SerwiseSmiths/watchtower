@@ -47,13 +47,13 @@ export interface NexusCustomerDetail {
 
 export async function fetchAllCustomers(search?: string): Promise<NexusCustomerListItem[]> {
   const query = search ? `?search=${encodeURIComponent(search)}` : '';
-  const res = await nexusFetch(`/user/customers${query}`);
+  const res = await nexusFetch(`/user/customers${query}`, {}, { tags: ['customers'] });
   const body = await res.json();
   return body.data.customers as NexusCustomerListItem[];
 }
 
 export async function fetchCustomer(id: string): Promise<NexusCustomerDetail> {
-  const res = await nexusFetch(`/user/customers/${id}`);
+  const res = await nexusFetch(`/user/customers/${id}`, {}, { tags: ['customers', `customer:${id}`] });
   const body = await res.json();
   return body.data.customer as NexusCustomerDetail;
 }

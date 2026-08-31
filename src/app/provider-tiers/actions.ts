@@ -1,6 +1,6 @@
 'use server';
 
-import { revalidatePath } from 'next/cache';
+import { revalidatePath, updateTag } from 'next/cache';
 import {
   listProviderTiers,
   createProviderTier,
@@ -19,6 +19,7 @@ async function findTier(id: string): Promise<NexusProviderTier | null> {
 export async function createProviderTierAction(input: ProviderTierInput): Promise<NexusProviderTier> {
   const tier = await createProviderTier(input);
   revalidatePath('/provider-tiers');
+  updateTag('provider-tiers');
   await logAudit({ module: 'provider-tier', action: 'CREATE', entityId: tier.id, entityLabel: tier.name, after: { ...tier } });
   return tier;
 }
@@ -27,6 +28,7 @@ export async function updateProviderTierAction(id: string, input: Partial<Provid
   const before = await findTier(id);
   const tier = await updateProviderTier(id, input);
   revalidatePath('/provider-tiers');
+  updateTag('provider-tiers');
   await logAudit({
     module: 'provider-tier',
     action: 'UPDATE',
@@ -42,6 +44,7 @@ export async function deleteProviderTierAction(id: string): Promise<void> {
   const before = await findTier(id);
   await deleteProviderTier(id);
   revalidatePath('/provider-tiers');
+  updateTag('provider-tiers');
   await logAudit({
     module: 'provider-tier',
     action: 'DELETE',
