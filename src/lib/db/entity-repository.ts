@@ -223,6 +223,103 @@ export async function hydrateAttributes(
   return hydrated;
 }
 
+/**
+ * Same output shape as calling `hydrateAttributes` once per row, but batched across every
+ * row in a list: media and relation fields each cost exactly 2 queries total (one link-table
+ * lookup with `owner IN (...)`, one target lookup with `id IN (...)`) instead of 2 queries
+ * PER ROW. This is what a list of any real size needs — `hydrateAttributes` fans out
+ * correctly, but it's an N+1: 174 service parts each pulling their own `device_types`
+ * relation was ~350 separate round trips to a remote pooled DB (Neon), which is what made
+ * `/pricing` take 13+ seconds even with the connection-pool semaphore in place (that capped
+ * concurrency so it didn't crash, but did nothing about the query COUNT).
+ * Component/dynamiczone fields aren't batched here (their own nested attributes can include
+ * further relations, e.g. a repeatable component's own relation field, which would need
+ * another layer of batching) — those still hydrate per-row, bounded by the same semaphore.
+ */
+async function hydrateAttributesForRows(
+  ownerUid: string,
+  collectionName: string,
+  rows: Row[],
+  attributes: Record<string, FieldSchema>,
+): Promise<Row[]> {
+  if (rows.length === 0) return [];
+
+  const rowIds = rows.map((r) => r.id as number);
+  const byId = new Map<number, Row>(
+    rows.map((row) => [
+      row.id as number,
+      { id: row.id, documentId: row.document_id, createdAt: row.created_at, updatedAt: row.updated_at, publishedAt: row.published_at },
+    ]),
+  );
+
+  for (const [name, field] of Object.entries(attributes)) {
+    if (field.kind === 'scalar') {
+      for (const row of rows) {
+        const raw = row[toColumnName(name)];
+        byId.get(row.id as number)![name] = field.type === 'decimal' && raw != null ? Number(raw) : raw;
+      }
+      continue;
+    }
+
+    if (field.kind === 'media') {
+      const links = await model('files_related_mph').findMany({
+        where: { related_id: { in: rowIds }, related_type: ownerUid, field: name },
+        orderBy: { order: 'asc' },
+      });
+      const fileIds = [...new Set(links.map((l) => l.file_id as number | null).filter((id): id is number => id != null))];
+      const files = fileIds.length ? await model('files').findMany({ where: { id: { in: fileIds } } }) : [];
+      const filesById = new Map(files.map((f) => [f.id as number, f]));
+      const linksByOwner = new Map<number, Row[]>();
+      for (const link of links) {
+        const ownerId = link.related_id as number;
+        (linksByOwner.get(ownerId) ?? linksByOwner.set(ownerId, []).get(ownerId)!).push(link);
+      }
+      for (const row of rows) {
+        const ownerLinks = linksByOwner.get(row.id as number) ?? [];
+        const ordered = ownerLinks.map((l) => filesById.get(l.file_id as number)).filter((f): f is Row => !!f);
+        byId.get(row.id as number)![name] = field.multiple ? ordered : (ordered[0] ?? null);
+      }
+      continue;
+    }
+
+    if (field.kind === 'relation') {
+      const map = getRelationTable(ownerUid, name);
+      const links = await model(map.table).findMany({
+        where: { [map.ownerColumn]: { in: rowIds } },
+        ...(map.targetOrderColumn ? { orderBy: { [map.targetOrderColumn]: 'asc' as const } } : {}),
+      });
+      const targetIds = [...new Set(links.map((l) => l[map.targetColumn] as number | null).filter((id): id is number => id != null))];
+      const targetType = getContentType(field.target);
+      const targets = targetIds.length ? await model(targetType.collectionName).findMany({ where: { id: { in: targetIds } } }) : [];
+      const targetsById = new Map(targets.map((t) => [t.id as number, shallowScalars(t, targetType.attributes)]));
+      const linksByOwner = new Map<number, Row[]>();
+      for (const link of links) {
+        const ownerId = link[map.ownerColumn] as number;
+        (linksByOwner.get(ownerId) ?? linksByOwner.set(ownerId, []).get(ownerId)!).push(link);
+      }
+      for (const row of rows) {
+        const ownerLinks = linksByOwner.get(row.id as number) ?? [];
+        const ordered = ownerLinks.map((l) => targetsById.get(l[map.targetColumn] as number)).filter((t): t is Row => !!t);
+        byId.get(row.id as number)![name] = ordered;
+      }
+      continue;
+    }
+
+    // component / dynamiczone — still per-row (bounded by the model() semaphore).
+    await Promise.all(
+      rows.map(async (row) => {
+        const value =
+          field.kind === 'component'
+            ? await hydrateComponentField(collectionName, row.id as number, name, field.component, field.repeatable)
+            : await hydrateDynamicZone(collectionName, row.id as number, name);
+        byId.get(row.id as number)![name] = value;
+      }),
+    );
+  }
+
+  return rows.map((row) => byId.get(row.id as number)!);
+}
+
 function adminUserLabel(user: Row | undefined): string | null {
   if (!user) return null;
   const name = `${user.firstname ?? ''} ${user.lastname ?? ''}`.trim();
@@ -298,12 +395,10 @@ export async function listEntities(contentTypeUid: string, options: ListOptions 
     model(schema.collectionName).count({ where }),
   ]);
 
-  // Back to Promise.all — the per-query concurrency cap now lives in model() itself
-  // (see Semaphore/withDbLimit above), so fanning out here is safe and, unlike fully
-  // sequential row-by-row hydration, doesn't pay full network latency once per query.
-  const data = await Promise.all(
-    rows.map(async (row) => pickFields(await hydrateAttributes(schema.uid, schema.collectionName, row, schema.attributes), options.fields)),
-  );
+  // Batched across the whole page of rows (see hydrateAttributesForRows) rather than the
+  // per-row hydrateAttributes — for a list, media/relation fields would otherwise be an N+1.
+  const hydratedRows = await hydrateAttributesForRows(schema.uid, schema.collectionName, rows, schema.attributes);
+  const data = hydratedRows.map((row) => pickFields(row, options.fields));
 
   return {
     data,
