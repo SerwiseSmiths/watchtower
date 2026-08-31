@@ -1,4 +1,5 @@
 import jwt from 'jsonwebtoken';
+import { redirect } from 'next/navigation';
 
 function getNexusApiUrl(): string {
   const url = process.env.NEXUS_API_URL;
@@ -51,6 +52,16 @@ export async function nexusFetch(path: string, init: RequestInit = {}, cacheOpts
   });
 
   if (!res.ok) {
+    // Nexus rejected our signed service token (mismatched/stale NEXUS_JWT_SECRET, clock
+    // skew, etc.) — this is never the operator's fault, but from their side it looks and
+    // feels like a broken session, so treat it the same way: clear the root session and
+    // send them back to login instead of surfacing a raw crash. `redirect()` works from
+    // both Server Component renders and Server Actions (unlike cookies().delete(), which
+    // only works in the latter — see /api/force-logout).
+    if (res.status === 401) {
+      redirect('/api/force-logout');
+    }
+
     const message = await res
       .clone()
       .json()

@@ -963,7 +963,17 @@ function PartsTab({
     .map((dt) => ({ deviceType: dt, rows: parts.filter((p) => p.device_types.some((x) => x.id === dt.id)) }))
     .filter((section) => section.rows.length > 0);
 
-  const colHeaderStyle: CSSProperties = { ...labelStyle, textAlign: 'center' };
+  const colHeaderStyle: CSSProperties = { fontSize: 10, fontWeight: 600, letterSpacing: '-0.03em', color: '#181818', textAlign: 'center' };
+  const colHeaderLeftStyle: CSSProperties = { fontSize: 10, fontWeight: 600, letterSpacing: '-0.03em', color: '#181818' };
+  const circleStyle = (border: string): CSSProperties => ({ width: 13, height: 13, borderRadius: '50%', border: `1px solid ${border}`, display: 'inline-block', flexShrink: 0 });
+  const chevronStyle = (up: boolean): CSSProperties => ({
+    width: 0,
+    height: 0,
+    borderLeft: '4px solid transparent',
+    borderRight: '4px solid transparent',
+    borderTop: up ? 'none' : '5px solid #181818',
+    borderBottom: up ? '5px solid #181818' : 'none',
+  });
 
   return (
     <>
@@ -1025,15 +1035,8 @@ function PartsTab({
         </Modal>
       )}
 
-      {/* Filter row */}
+      {/* Device Type filter — controls which sections render below (each section IS one device type). */}
       <div className="d-flex align-items-center mb-3" style={{ gap: 12 }}>
-        <div>
-          <div style={fieldLabelStyle}>Group</div>
-          <select value={selectedTierId} onChange={(e) => setSelectedTierId(e.target.value)} style={inputStyle}>
-            {providerTiers.length === 0 && <option value="">No groups yet</option>}
-            {providerTiers.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
-          </select>
-        </div>
         <div>
           <div style={fieldLabelStyle}>Device Type</div>
           <select
@@ -1047,7 +1050,7 @@ function PartsTab({
         </div>
       </div>
 
-      <div className="d-flex flex-column" style={{ gap: 12 }}>
+      <div className="d-flex flex-column" style={{ gap: 15 }}>
         {sections.length === 0 && (
           <div style={{ background: '#FFFFFF', borderRadius: 5, padding: 40, textAlign: 'center', ...labelStyle }}>No service parts match this filter.</div>
         )}
@@ -1055,91 +1058,134 @@ function PartsTab({
         {sections.map(({ deviceType, rows }) => {
           const isCollapsed = collapsed.has(deviceType.id);
           return (
-            <div key={deviceType.id} style={{ background: '#FFFFFF', borderRadius: 5, overflow: 'hidden' }}>
-              <div
-                onClick={() => toggleCollapsed(deviceType.id)}
-                className="d-flex align-items-center justify-content-between"
-                style={{ background: '#CED9E4', padding: '0 15px', height: 35, cursor: 'pointer' }}
-              >
-                <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: '-0.03em', color: '#181818' }}>{deviceType.name}</span>
-                <span style={{ fontSize: 10, color: '#181818' }}>{isCollapsed ? '▸' : '▾'}</span>
-              </div>
-
-              {!isCollapsed && (
-                <>
-                  <div className="d-flex align-items-center" style={{ padding: '0 15px', height: 35, borderBottom: '1px solid #E5E5E5' }}>
-                    <div style={{ width: 220, ...labelStyle }}>Particulars</div>
-                    <div style={{ width: 90, ...colHeaderStyle }}>Status</div>
-                    <div style={{ width: 90, ...colHeaderStyle }}>Sales Price</div>
-                    <div style={{ width: 90, ...colHeaderStyle }}>Expense</div>
-                    <div style={{ width: 90, ...colHeaderStyle }}>Labour</div>
-                    <div style={{ width: 90, ...colHeaderStyle }}>Gross Profit</div>
-                    <div style={{ width: 90, ...colHeaderStyle }}>Max Discount</div>
-                    <div style={{ width: 90, ...colHeaderStyle }}>Type</div>
-                    <div style={{ width: 60 }} />
+            <div key={deviceType.id} style={{ background: '#FFFFFF', borderRadius: 5, overflowX: 'auto' }}>
+              <div style={{ minWidth: 1160 }}>
+                {/* Row 1 — Group selector + device-type identity/collapse toggle */}
+                <div className="d-flex align-items-stretch" style={{ background: '#CED9E4', borderTopLeftRadius: 5, borderTopRightRadius: 5, borderBottom: '1px solid #FFFFFF', height: 35 }}>
+                  <div className="d-flex align-items-center" style={{ width: 360, paddingLeft: 10, borderRight: '1px solid #FFFFFF' }}>
+                    <span style={circleStyle('#181818')} />
                   </div>
+                  <div className="d-flex align-items-center justify-content-center" style={{ width: 470, borderRight: '1px solid #FFFFFF' }}>
+                    <select
+                      value={selectedTierId}
+                      onChange={(e) => setSelectedTierId(e.target.value)}
+                      style={{ background: 'transparent', border: 'none', fontFamily: 'inherit', fontSize: 10, fontWeight: 600, letterSpacing: '-0.03em', color: '#181818', textAlign: 'center', outline: 'none' }}
+                    >
+                      {providerTiers.length === 0 && <option value="">No groups yet</option>}
+                      {providerTiers.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
+                    </select>
+                  </div>
+                  <div
+                    onClick={() => toggleCollapsed(deviceType.id)}
+                    className="d-flex align-items-center justify-content-center flex-grow-1"
+                    style={{ gap: 8, cursor: 'pointer' }}
+                  >
+                    <span style={{ fontSize: 10, fontWeight: 600, letterSpacing: '-0.03em', color: '#181818' }}>{deviceType.name}</span>
+                    <span style={chevronStyle(isCollapsed)} />
+                  </div>
+                </div>
 
-                  {rows.map((row, i) => {
-                    const pricing = resolvePricing(row, pricingMap.get(row.documentId));
-                    const grossProfit = pricing.salesPrice - pricing.expense - pricing.labour;
-                    return (
-                      <div
-                        key={row.id}
-                        className="d-flex align-items-center"
-                        style={{ padding: '0 15px', height: 44, borderBottom: i === rows.length - 1 ? 'none' : '1px solid #E5E5E5' }}
-                      >
-                        <div
-                          style={{ width: 220, ...cellStyle, cursor: 'pointer' }}
-                          onClick={() => setDetailPart(row)}
-                        >
-                          {row.name}
-                        </div>
-                        <div style={{ width: 90 }} className="d-flex justify-content-center">
-                          <span
-                            style={{
-                              background: row.visibility === 'ACTIVE' ? '#D6FAB4' : '#E5E5E5',
-                              color: row.visibility === 'ACTIVE' ? '#007637' : '#454545',
-                              border: `1px solid ${row.visibility === 'ACTIVE' ? '#007637' : '#454545'}`,
-                              borderRadius: 4,
-                              padding: '2px 8px',
-                              fontSize: 8,
-                              fontWeight: 500,
-                            }}
-                          >
-                            {row.visibility === 'ACTIVE' ? 'Active' : row.visibility === 'DRAFT' ? 'Draft' : 'Discontinued'}
-                          </span>
-                        </div>
-                        <div style={{ width: 90 }}>
-                          <EditableMoneyCell key={pricing.salesPrice} value={pricing.salesPrice} isDefault={pricing.isDefault} onSave={(v) => savePricingField(row, { salesPrice: v })} />
-                        </div>
-                        <div style={{ width: 90 }}>
-                          <EditableMoneyCell key={pricing.expense} value={pricing.expense} isDefault={pricing.isDefault} onSave={(v) => savePricingField(row, { expense: v })} />
-                        </div>
-                        <div style={{ width: 90 }}>
-                          <EditableMoneyCell key={pricing.labour} value={pricing.labour} isDefault={pricing.isDefault} onSave={(v) => savePricingField(row, { labour: v })} />
-                        </div>
-                        <div style={{ width: 90, ...cellStyle, textAlign: 'center' }}>₹{grossProfit.toFixed(2)}</div>
-                        <div style={{ width: 90 }}>
-                          <EditableMoneyCell key={pricing.maxDiscount} value={pricing.maxDiscount} isDefault={pricing.isDefault} onSave={(v) => savePricingField(row, { maxDiscount: v })} />
-                        </div>
-                        <div style={{ width: 90, ...cellStyle, fontWeight: 400, textAlign: 'center' }}>{row.type}</div>
-                        <div style={{ width: 60 }} className="d-flex justify-content-center">
-                          {!pricing.isDefault && (
-                            <button
-                              type="button"
-                              onClick={() => resetPricingForRow(row)}
-                              title="Reset to default price"
-                              style={{ background: 'none', border: 'none', fontSize: 9, fontWeight: 600, color: '#0D67CE', padding: 0 }}
-                            >
-                              Reset
-                            </button>
-                          )}
-                        </div>
+                {!isCollapsed && (
+                  <>
+                    {/* Row 2 — column headers */}
+                    <div className="d-flex align-items-stretch" style={{ background: '#CED9E4', borderBottom: '1px solid #FFFFFF', height: 35 }}>
+                      <div className="d-flex align-items-center" style={{ width: 40, paddingLeft: 10 }}>
+                        <span style={circleStyle('#181818')} />
                       </div>
-                    );
-                  })}
-                </>
-              )}
+                      <div className="d-flex align-items-center" style={{ width: 210, ...colHeaderLeftStyle, borderRight: '1px solid #FFFFFF' }}>Particulars</div>
+                      <div className="d-flex align-items-center justify-content-center" style={{ width: 118, ...colHeaderStyle, borderRight: '1px solid #FFFFFF' }}>Status</div>
+                      <div className="d-flex align-items-center justify-content-center" style={{ width: 118, ...colHeaderStyle, borderRight: '1px solid #FFFFFF' }}>Sales Price</div>
+                      <div className="d-flex align-items-center justify-content-center" style={{ width: 118, ...colHeaderStyle, borderRight: '1px solid #FFFFFF' }}>Expense</div>
+                      <div className="d-flex align-items-center justify-content-center" style={{ width: 118, ...colHeaderStyle, borderRight: '1px solid #FFFFFF' }}>Labour</div>
+                      <div className="d-flex align-items-center justify-content-center" style={{ width: 118, ...colHeaderStyle, borderRight: '1px solid #FFFFFF' }}>Gross Profit</div>
+                      <div className="d-flex align-items-center justify-content-center" style={{ width: 118, ...colHeaderStyle, borderRight: '1px solid #FFFFFF' }}>Max Discount</div>
+                      <div className="d-flex align-items-center justify-content-center" style={{ width: 118, ...colHeaderStyle, borderRight: '1px solid #FFFFFF', gap: 6 }}>
+                        Type <span style={chevronStyle(false)} />
+                      </div>
+                      <div className="d-flex align-items-center justify-content-center" style={{ width: 118, ...colHeaderStyle }}>Category</div>
+                    </div>
+
+                    {rows.map((row, i) => {
+                      const pricing = resolvePricing(row, pricingMap.get(row.documentId));
+                      const grossProfit = pricing.salesPrice - pricing.expense - pricing.labour;
+                      return (
+                        <div
+                          key={row.id}
+                          className="d-flex align-items-stretch"
+                          style={{ height: 44, borderBottom: i === rows.length - 1 ? 'none' : '1px solid #E5E5E5' }}
+                        >
+                          <div className="d-flex align-items-center" style={{ width: 40, paddingLeft: 10 }}>
+                            <span style={circleStyle('#B7B7B7')} />
+                          </div>
+                          <div
+                            className="d-flex flex-column justify-content-center"
+                            style={{ width: 210, ...cellStyle, borderRight: '1px solid #E5E5E5', cursor: 'pointer' }}
+                            onClick={() => setDetailPart(row)}
+                          >
+                            {row.name}
+                          </div>
+                          <div style={{ width: 118, borderRight: '1px solid #E5E5E5' }} className="d-flex align-items-center justify-content-center">
+                            <span
+                              style={{
+                                background: row.visibility === 'ACTIVE' ? '#D6FAB4' : '#E5E5E5',
+                                color: row.visibility === 'ACTIVE' ? '#007637' : '#454545',
+                                border: `0.87px solid ${row.visibility === 'ACTIVE' ? '#007637' : '#454545'}`,
+                                borderRadius: 4,
+                                padding: '3px 9px',
+                                fontSize: 8,
+                                fontWeight: 500,
+                                letterSpacing: '-0.03em',
+                              }}
+                            >
+                              {row.visibility === 'ACTIVE' ? 'Active' : row.visibility === 'DRAFT' ? 'Draft' : 'Discontinued'}
+                            </span>
+                          </div>
+                          <div style={{ width: 118, borderRight: '1px solid #E5E5E5' }}>
+                            <EditableMoneyCell key={pricing.salesPrice} value={pricing.salesPrice} isDefault={pricing.isDefault} onSave={(v) => savePricingField(row, { salesPrice: v })} />
+                          </div>
+                          <div style={{ width: 118, borderRight: '1px solid #E5E5E5' }}>
+                            <EditableMoneyCell key={pricing.expense} value={pricing.expense} isDefault={pricing.isDefault} onSave={(v) => savePricingField(row, { expense: v })} />
+                          </div>
+                          <div style={{ width: 118, borderRight: '1px solid #E5E5E5' }}>
+                            <EditableMoneyCell key={pricing.labour} value={pricing.labour} isDefault={pricing.isDefault} onSave={(v) => savePricingField(row, { labour: v })} />
+                          </div>
+                          <div style={{ width: 118, ...cellStyle, textAlign: 'center', borderRight: '1px solid #E5E5E5' }}>₹{grossProfit.toFixed(2)}</div>
+                          <div style={{ width: 118, borderRight: '1px solid #E5E5E5', position: 'relative' }}>
+                            <EditableMoneyCell key={pricing.maxDiscount} value={pricing.maxDiscount} isDefault={pricing.isDefault} onSave={(v) => savePricingField(row, { maxDiscount: v })} />
+                            {!pricing.isDefault && (
+                              <button
+                                type="button"
+                                onClick={() => resetPricingForRow(row)}
+                                title="Reset this row to the default price"
+                                style={{ position: 'absolute', top: 2, right: 2, background: 'none', border: 'none', fontSize: 8, fontWeight: 600, color: '#0D67CE', padding: 0 }}
+                              >
+                                Reset
+                              </button>
+                            )}
+                          </div>
+                          <div style={{ width: 118, borderRight: '1px solid #E5E5E5' }} className="d-flex align-items-center justify-content-center">
+                            <span
+                              style={{
+                                background: '#E5E5E5',
+                                color: '#454545',
+                                border: '0.87px solid #454545',
+                                borderRadius: 4,
+                                padding: '3px 9px',
+                                fontSize: 8,
+                                fontWeight: 500,
+                                letterSpacing: '-0.03em',
+                              }}
+                            >
+                              {row.type}
+                            </span>
+                          </div>
+                          <div style={{ width: 118, ...cellStyle, fontWeight: 400, textAlign: 'center' }}>{row.category}</div>
+                        </div>
+                      );
+                    })}
+                  </>
+                )}
+              </div>
             </div>
           );
         })}
