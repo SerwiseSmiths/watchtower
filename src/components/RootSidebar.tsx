@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { Suspense, useState } from 'react';
 import NextLink from 'next/link';
 import { usePathname, useSearchParams } from 'next/navigation';
 import type { CSSProperties } from 'react';
@@ -49,7 +49,25 @@ function groupForPathname(pathname: string | null): Group {
   return 'content';
 }
 
+// useSearchParams() forces this subtree to opt out of static rendering, which Next.js
+// requires to happen inside a Suspense boundary (build fails otherwise — every page
+// renders <RootSidebar>, so an unwrapped hook here broke `yarn build` for all of them,
+// not just the page that looked like it was missing one). The fallback is only ever
+// visible for a build-time static pass / an instant of client hydration, so it doesn't
+// need the real active-tab state — just the same-sized shell to avoid layout shift.
+function RootSidebarFallback() {
+  return <aside style={{ width: 214, background: '#FFFFFF', flexShrink: 0, paddingTop: 24 }} />;
+}
+
 export default function RootSidebar() {
+  return (
+    <Suspense fallback={<RootSidebarFallback />}>
+      <RootSidebarContent />
+    </Suspense>
+  );
+}
+
+function RootSidebarContent() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const [group, setGroup] = useState<Group>(() => groupForPathname(pathname));
