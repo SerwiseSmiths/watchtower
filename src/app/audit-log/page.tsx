@@ -1,3 +1,4 @@
+import { Suspense } from 'react';
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { ROOT_SESSION_COOKIE_NAME, verifyRootSession } from '@/lib/auth/root-session';
@@ -60,14 +61,16 @@ export default async function AuditLogPage({ searchParams }: { searchParams: Pro
   ]);
 
   return (
-    <AuditLogView
-      logs={logs as unknown as AuditLogRow[]}
-      total={total}
-      page={page}
-      pageSize={PAGE_SIZE}
-      moduleOptions={modules.map((m) => m.module)}
-      actorOptions={actors.map((a) => ({ id: a.actor_id as number, name: a.actor_name ?? `#${a.actor_id}` }))}
-      filters={params}
-    />
+    <Suspense fallback={null}>
+      <AuditLogView
+        logs={logs as unknown as AuditLogRow[]}
+        total={total}
+        page={page}
+        pageSize={PAGE_SIZE}
+        moduleOptions={modules.map((m) => m.module)}
+        actorOptions={actors.map((a) => ({ id: a.actor_id as number, name: a.actor_name ?? `#${a.actor_id}` }))}
+        filters={params}
+      />
+    </Suspense>
   );
 }
