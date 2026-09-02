@@ -232,9 +232,10 @@ export async function hydrateAttributes(
  * relation was ~350 separate round trips to a remote pooled DB (Neon), which is what made
  * `/pricing` take 13+ seconds even with the connection-pool semaphore in place (that capped
  * concurrency so it didn't crash, but did nothing about the query COUNT).
- * Component/dynamiczone fields aren't batched here (their own nested attributes can include
- * further relations, e.g. a repeatable component's own relation field, which would need
- * another layer of batching) — those still hydrate per-row, bounded by the same semaphore.
+ * Component fields are batched too, recursively — a component's own relation fields (e.g. a
+ * subscription plan's visit_services, each carrying a service_parts relation) collapse the
+ * same way. Only dynamiczone stays per-row (mixed component types per link; not worth
+ * batching until a dynamiczone-heavy list actually turns up slow).
  */
 async function hydrateAttributesForRows(
   ownerUid: string,
@@ -305,13 +306,42 @@ async function hydrateAttributesForRows(
       continue;
     }
 
-    // component / dynamiczone — still per-row (bounded by the model() semaphore).
+    if (field.kind === 'component') {
+      // Batched two levels deep: one query for every owner's component links, one for all
+      // the component rows themselves, then hydrateAttributesForRows recurses on THOSE rows
+      // — so a relation living inside a repeatable component (e.g. a subscription plan's
+      // visit_services, each with its own service_parts relation) also collapses from one
+      // query pair per component instance down to one query pair total, not just one per
+      // owning row. This was the remaining N+1 after the top-level relation batching above:
+      // 6 plans x ~3 visit_services x 2 queries = ~36 unbatched round trips for that one field.
+      const links = await model(cmpsTableName(collectionName)).findMany({
+        where: { entity_id: { in: rowIds }, field: name },
+        orderBy: { order: 'asc' },
+      });
+      const component = getComponent(field.component);
+      const cmpIds = [...new Set(links.map((l) => l.cmp_id as number | null).filter((id): id is number => id != null))];
+      const cmpRows = cmpIds.length ? await model(component.collectionName).findMany({ where: { id: { in: cmpIds } } }) : [];
+      const hydratedCmpRows = await hydrateAttributesForRows(field.component, component.collectionName, cmpRows, component.attributes);
+      const hydratedById = new Map(hydratedCmpRows.map((r) => [r.id as number, r]));
+      const linksByOwner = new Map<number, Row[]>();
+      for (const link of links) {
+        const ownerId = link.entity_id as number;
+        (linksByOwner.get(ownerId) ?? linksByOwner.set(ownerId, []).get(ownerId)!).push(link);
+      }
+      for (const row of rows) {
+        const ownerLinks = linksByOwner.get(row.id as number) ?? [];
+        const ordered = ownerLinks.map((l) => hydratedById.get(l.cmp_id as number)).filter((r): r is Row => !!r);
+        byId.get(row.id as number)![name] = field.repeatable ? ordered : (ordered[0] ?? null);
+      }
+      continue;
+    }
+
+    // dynamiczone — still per-row (bounded by the model() semaphore). Rarer and mixes
+    // component types per link, which would need per-type batching; not worth it unless
+    // a dynamiczone-heavy list turns up slow in practice.
     await Promise.all(
       rows.map(async (row) => {
-        const value =
-          field.kind === 'component'
-            ? await hydrateComponentField(collectionName, row.id as number, name, field.component, field.repeatable)
-            : await hydrateDynamicZone(collectionName, row.id as number, name);
+        const value = await hydrateDynamicZone(collectionName, row.id as number, name);
         byId.get(row.id as number)![name] = value;
       }),
     );
