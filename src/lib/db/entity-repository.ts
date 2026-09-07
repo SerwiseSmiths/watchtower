@@ -1,4 +1,5 @@
 import { randomBytes } from 'crypto';
+import { unstable_cache, revalidateTag } from 'next/cache';
 import { prisma } from './prisma';
 import { cmpsTableName, getComponent, getContentType, getRelationTable, toColumnName } from '../content-schema/registry';
 import type { ContentTypeSchema, FieldSchema } from '../content-schema/types';
@@ -232,10 +233,10 @@ export async function hydrateAttributes(
  * relation was ~350 separate round trips to a remote pooled DB (Neon), which is what made
  * `/pricing` take 13+ seconds even with the connection-pool semaphore in place (that capped
  * concurrency so it didn't crash, but did nothing about the query COUNT).
- * Component fields are batched too, recursively — a component's own relation fields (e.g. a
- * subscription plan's visit_services, each carrying a service_parts relation) collapse the
- * same way. Only dynamiczone stays per-row (mixed component types per link; not worth
- * batching until a dynamiczone-heavy list actually turns up slow).
+ * Component and dynamic-zone fields are batched too, recursively — a component's own relation
+ * fields (e.g. a subscription plan's visit_services, each carrying a service_parts relation)
+ * collapse the same way, and a dynamic zone batches per component type actually present rather
+ * than per link.
  */
 async function hydrateAttributesForRows(
   ownerUid: string,
@@ -336,15 +337,47 @@ async function hydrateAttributesForRows(
       continue;
     }
 
-    // dynamiczone — still per-row (bounded by the model() semaphore). Rarer and mixes
-    // component types per link, which would need per-type batching; not worth it unless
-    // a dynamiczone-heavy list turns up slow in practice.
-    await Promise.all(
-      rows.map(async (row) => {
-        const value = await hydrateDynamicZone(collectionName, row.id as number, name);
-        byId.get(row.id as number)![name] = value;
-      }),
-    );
+    // dynamiczone — each link can point at a different component type, so it batches in two
+    // steps: one query for every owner's links (all types together), then one findMany + one
+    // recursive hydrateAttributesForRows PER component type actually present (not per link) —
+    // e.g. a dynamic zone mixing 2 component types across 50 rows costs 1 + 2*2 = 5 queries
+    // total instead of ~50+ per-row lookups.
+    {
+      const links = await model(cmpsTableName(collectionName)).findMany({
+        where: { entity_id: { in: rowIds }, field: name },
+        orderBy: { order: 'asc' },
+      });
+      const linksByType = new Map<string, Row[]>();
+      for (const link of links) {
+        const componentType = link.component_type as string | null;
+        if (!componentType || link.cmp_id == null) continue;
+        (linksByType.get(componentType) ?? linksByType.set(componentType, []).get(componentType)!).push(link);
+      }
+      const hydratedByTypeAndId = new Map<string, Map<number, Row>>();
+      for (const [componentType, typeLinks] of linksByType) {
+        const component = getComponent(componentType);
+        const cmpIds = [...new Set(typeLinks.map((l) => l.cmp_id as number))];
+        const cmpRows = await model(component.collectionName).findMany({ where: { id: { in: cmpIds } } });
+        const hydratedCmpRows = await hydrateAttributesForRows(componentType, component.collectionName, cmpRows, component.attributes);
+        hydratedByTypeAndId.set(componentType, new Map(hydratedCmpRows.map((r) => [r.id as number, r])));
+      }
+      const linksByOwner = new Map<number, Row[]>();
+      for (const link of links) {
+        const ownerId = link.entity_id as number;
+        (linksByOwner.get(ownerId) ?? linksByOwner.set(ownerId, []).get(ownerId)!).push(link);
+      }
+      for (const row of rows) {
+        const ownerLinks = linksByOwner.get(row.id as number) ?? [];
+        const ordered = ownerLinks
+          .map((l) => {
+            const componentType = l.component_type as string;
+            const hydrated = hydratedByTypeAndId.get(componentType)?.get(l.cmp_id as number);
+            return hydrated ? { __component: componentType, ...hydrated } : null;
+          })
+          .filter((r): r is Row & { __component: string } => r !== null);
+        byId.get(row.id as number)![name] = ordered;
+      }
+    }
   }
 
   return rows.map((row) => byId.get(row.id as number)!);
@@ -436,6 +469,42 @@ export async function listEntities(contentTypeUid: string, options: ListOptions 
   };
 }
 
+const contentTag = (contentTypeUid: string) => `content:${contentTypeUid}`;
+const CONTENT_CACHE_SECONDS = 45;
+
+/**
+ * Cached wrapper around `listEntities` for read-heavy list/dashboard views (content-manager list,
+ * pricing, device-types, cms) — admin data that doesn't need to be live on every render. Tagged
+ * per content type so `createEntity`/`updateEntity`/`deleteEntity`/`publishEntity`/`unpublishEntity`
+ * can invalidate it immediately via `revalidateTag`, with a 45s TTL as a backstop.
+ */
+export async function cachedListEntities(contentTypeUid: string, options: ListOptions = {}) {
+  return unstable_cache(() => listEntities(contentTypeUid, options), ['listEntities', contentTypeUid, JSON.stringify(options)], {
+    tags: [contentTag(contentTypeUid)],
+    revalidate: CONTENT_CACHE_SECONDS,
+  })();
+}
+
+const LABEL_FIELD_CANDIDATES = ['name', 'title', 'label', 'key'];
+
+/**
+ * Lightweight id+label lookup for a content type — used to populate a relation filter/picker's
+ * option list. Selects only the raw rows and picks a label column client-side rather than routing
+ * through `listEntities`/`hydrateAttributesForRows`, which would otherwise hydrate every media,
+ * component and relation field on up to `pageSize` rows just to throw all of it away except id
+ * and a label.
+ */
+export async function findLabelOptions(contentTypeUid: string, pageSize = 200): Promise<{ id: number; label: string }[]> {
+  const schema = getContentType(contentTypeUid);
+  const labelAttrName = LABEL_FIELD_CANDIDATES.find((name) => schema.attributes[name]?.kind === 'scalar');
+  const where = statusWhere(schema, schema.draftAndPublish ? 'draft' : undefined);
+  const rows = await model(schema.collectionName).findMany({ where, orderBy: { id: 'asc' }, take: pageSize });
+  return rows.map((row) => ({
+    id: row.id as number,
+    label: (labelAttrName ? (row[toColumnName(labelAttrName)] as string | undefined) : undefined) || String(row.document_id ?? row.id),
+  }));
+}
+
 /**
  * For the admin list view: given a page of draft rows' documentIds, returns the subset that also
  * have a published sibling row — used to render an accurate Published/Draft badge without querying
@@ -484,6 +553,14 @@ export async function findSingleType(contentTypeUid: string, options: { status?:
   const row = rows[0];
   if (!row) return null;
   return hydrateAttributes(schema.uid, schema.collectionName, row, schema.attributes);
+}
+
+/** Cached wrapper around `findSingleType` — same rationale as `cachedListEntities`. */
+export async function cachedFindSingleType(contentTypeUid: string, options: { status?: 'draft' | 'published' } = {}) {
+  return unstable_cache(() => findSingleType(contentTypeUid, options), ['findSingleType', contentTypeUid, JSON.stringify(options)], {
+    tags: [contentTag(contentTypeUid)],
+    revalidate: CONTENT_CACHE_SECONDS,
+  })();
 }
 
 // ---------------------------------------------------------------------------
@@ -679,6 +756,7 @@ export async function createEntity(contentTypeUid: string, data: Row) {
     entityLabel: created ? labelFor(created) : undefined,
     after: created ?? undefined,
   });
+  revalidateTag(contentTag(contentTypeUid), { expire: CONTENT_CACHE_SECONDS });
   return created;
 }
 
@@ -697,6 +775,7 @@ export async function updateEntity(contentTypeUid: string, id: number, data: Row
     before: before ?? undefined,
     after: after ?? undefined,
   });
+  revalidateTag(contentTag(contentTypeUid), { expire: CONTENT_CACHE_SECONDS });
   return after;
 }
 
@@ -766,6 +845,7 @@ export async function deleteEntity(contentTypeUid: string, id: number) {
     entityLabel: before ? labelFor(before) : undefined,
     before: before ?? undefined,
   });
+  revalidateTag(contentTag(contentTypeUid), { expire: CONTENT_CACHE_SECONDS });
 }
 
 /**
@@ -809,6 +889,7 @@ export async function publishEntity(contentTypeUid: string, draftId: number) {
   }
 
   await writeNestedFields(schema.uid, schema.collectionName, publishedId, schema.attributes, draft);
+  revalidateTag(contentTag(contentTypeUid), { expire: CONTENT_CACHE_SECONDS });
   return findEntity(contentTypeUid, publishedId);
 }
 

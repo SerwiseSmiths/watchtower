@@ -1,7 +1,7 @@
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { ROOT_SESSION_COOKIE_NAME, verifyRootSession } from '@/lib/auth/root-session';
-import { listEntities } from '@/lib/db/entity-repository';
+import { cachedListEntities } from '@/lib/db/entity-repository';
 import { prisma } from '@/lib/db/prisma';
 import { listProviderTiers } from '@/lib/nexus/providerTiers';
 import PricingView, {
@@ -25,9 +25,9 @@ export default async function PricingPage() {
   // Concurrency across these is safe and fast — entity-repository's model() caps how many
   // DB queries run at once regardless of how many top-level calls fan out concurrently.
   const [plans, addons, parts, deviceTypes, providerTiers] = await Promise.all([
-    listEntities(PLAN_UID, { sortField: 'sort_order', pageSize: 200 }),
-    listEntities(ADDON_UID, { sortField: 'sort_order', pageSize: 200 }),
-    listEntities(PART_UID, { sortField: 'name', pageSize: 200 }),
+    cachedListEntities(PLAN_UID, { sortField: 'sort_order', pageSize: 200 }),
+    cachedListEntities(ADDON_UID, { sortField: 'sort_order', pageSize: 200 }),
+    cachedListEntities(PART_UID, { sortField: 'name', pageSize: 200 }),
     prisma.device_types.findMany({ select: { id: true, label: true }, orderBy: { label: 'asc' } }),
     listProviderTiers(),
   ]);

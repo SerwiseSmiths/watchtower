@@ -1,18 +1,10 @@
 import { notFound, redirect } from 'next/navigation';
-import { getContentType, resolveContentTypeSlug, toColumnName } from '@/lib/content-schema/registry';
-import { findOwnerIdsByRelationTarget, getPublishedDocumentIds, listEntities } from '@/lib/db/entity-repository';
+import { resolveContentTypeSlug, toColumnName } from '@/lib/content-schema/registry';
+import { cachedListEntities, findLabelOptions, findOwnerIdsByRelationTarget, getPublishedDocumentIds } from '@/lib/db/entity-repository';
 import type { FieldSchema, ScalarType } from '@/lib/content-schema/types';
 import ListView, { type FilterCondition, type RelationFilterOption } from './ListView';
 
 const SEARCHABLE_SCALAR_TYPES = new Set(['string', 'text', 'uid']);
-const LABEL_FIELD_CANDIDATES = ['name', 'title', 'label', 'key'];
-
-function labelFor(row: Record<string, unknown>): string {
-  for (const field of LABEL_FIELD_CANDIDATES) {
-    if (typeof row[field] === 'string' && row[field]) return row[field] as string;
-  }
-  return String(row.documentId ?? row.id);
-}
 
 function coerceFilterValue(type: ScalarType, raw: string): unknown {
   if (type === 'integer') return Number.parseInt(raw, 10);
@@ -116,7 +108,7 @@ export default async function ContentTypeListPage({
   // Always list the draft row — every document has exactly one, so this gives one row per document
   // (an unfiltered/published-default query would return both the draft and published row for the
   // same document as separate table rows). The real published/draft badge is computed below.
-  const result = await listEntities(schema.uid, {
+  const result = await cachedListEntities(schema.uid, {
     page,
     pageSize: 20,
     filters,
@@ -138,16 +130,23 @@ export default async function ContentTypeListPage({
 
   // Lightweight option lists (id + label only) for the Filters popover's relation pickers —
   // separate from the full relationOptions the edit view fetches, which also need targetSlug.
-  const relationFilterOptions: Record<string, RelationFilterOption[]> = {};
+  // Deduped by target content type and fetched in parallel: several relation fields commonly
+  // point at the same target (e.g. multiple "which device type" fields), so this fetches each
+  // target type's options once via findLabelOptions rather than once per relation field via a
+  // full listEntities hydration.
+  const relationFieldsByTarget = new Map<string, string[]>();
   for (const [name, field] of Object.entries(schema.attributes)) {
     if (field.kind !== 'relation') continue;
-    const targetSchema = getContentType(field.target);
-    const targetList = await listEntities(field.target, { pageSize: 200, status: targetSchema.draftAndPublish ? 'draft' : undefined });
-    relationFilterOptions[name] = targetList.data.map((row) => ({
-      id: (row as { id: number }).id,
-      label: labelFor(row as Record<string, unknown>),
-    }));
+    (relationFieldsByTarget.get(field.target) ?? relationFieldsByTarget.set(field.target, []).get(field.target)!).push(name);
   }
+  const targetUids = [...relationFieldsByTarget.keys()];
+  const targetOptionLists = await Promise.all(targetUids.map((targetUid) => findLabelOptions(targetUid, 200)));
+  const relationFilterOptions: Record<string, RelationFilterOption[]> = {};
+  targetUids.forEach((targetUid, i) => {
+    for (const fieldName of relationFieldsByTarget.get(targetUid)!) {
+      relationFilterOptions[fieldName] = targetOptionLists[i];
+    }
+  });
 
   return (
     <ListView

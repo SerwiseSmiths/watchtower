@@ -1,7 +1,7 @@
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { ROOT_SESSION_COOKIE_NAME, verifyRootSession } from '@/lib/auth/root-session';
-import { listEntities } from '@/lib/db/entity-repository';
+import { cachedListEntities } from '@/lib/db/entity-repository';
 import { prisma } from '@/lib/db/prisma';
 import DeviceTypesView, { type DeviceTypeRow, type RelationOption } from './DeviceTypesView';
 
@@ -17,7 +17,7 @@ export default async function DeviceTypesPage() {
   // back and we only need id+name for the picker here — no point paying for that hydration.
   // Fetched concurrently: entity-repository's model() caps total in-flight DB queries.
   const [deviceTypes, serviceParts, subscriptionAddons] = await Promise.all([
-    listEntities('api::device-type.device-type', { sortField: 'label', pageSize: 200 }),
+    cachedListEntities('api::device-type.device-type', { sortField: 'label', pageSize: 200 }),
     prisma.service_parts.findMany({
       where: { published_at: { not: null } },
       select: { id: true, name: true },

@@ -12,6 +12,8 @@
     "prisma:generate": "prisma generate"
   },
   "dependencies": {
+    "@neondatabase/serverless": "^1.1.0",
+    "@prisma/adapter-neon": "^6.19.3",
     "@prisma/client": "^6.18.0",
     "@simplewebauthn/browser": "^13.2.0",
     "@simplewebauthn/server": "^13.2.2",
@@ -30,7 +32,8 @@
     "react": "19.2.4",
     "react-dom": "19.2.4",
     "react-leaflet": "^5.0.0",
-    "styled-components": "^6.0.0"
+    "styled-components": "^6.0.0",
+    "ws": "^8.21.3"
   },
   "devDependencies": {
     "@types/bcryptjs": "^3.0.0",
@@ -39,6 +42,7 @@
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "@types/ws": "^8.18.1",
     "eslint": "^9",
     "eslint-config-next": "16.2.3",
     "prisma": "^6.18.0",
