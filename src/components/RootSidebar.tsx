@@ -41,6 +41,17 @@ const CONTENT_ITEMS: NavItem[] = [
       { href: '/pricing?tab=parts', label: 'Service Parts', tab: 'parts' },
     ],
   },
+  {
+    href: '/cms',
+    label: 'CMS',
+    children: [
+      { href: '/cms?tab=bottom-tab', label: 'Bottom Tab', tab: 'bottom-tab' },
+      { href: '/cms?tab=complaint-page', label: 'Complaint Page', tab: 'complaint-page' },
+      { href: '/cms?tab=global-config', label: 'Global Config', tab: 'global-config' },
+      { href: '/cms?tab=welcome-bonus', label: 'Welcome Bonus', tab: 'welcome-bonus' },
+      { href: '/cms?tab=pages', label: 'Pages', tab: 'pages' },
+    ],
+  },
   { href: '/audit-log', label: 'Audit Log' },
 ];
 
