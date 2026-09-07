@@ -19,6 +19,7 @@ import {
 } from '@strapi/design-system';
 import { Plus, User as UserIcon } from '@strapi/icons';
 import { createUserAction, toggleUserActiveAction } from './actions';
+import PageHeader from '../PageHeader';
 
 interface AdminUser {
   id: number;
@@ -63,19 +64,15 @@ export default function UsersView({ users }: { users: AdminUser[] }) {
 
   return (
     <Box>
-      <Flex justifyContent="space-between" alignItems="flex-start" paddingBottom={4}>
-        <Box>
-          <Typography variant="alpha" tag="h1">
-            Users
-          </Typography>
-          <Typography textColor="neutral600">
-            Admin accounts for watchtower and console — used to sign in at /admin and to become Operators.
-          </Typography>
-        </Box>
-        <Button startIcon={<Plus />} onClick={() => setAddOpen(true)}>
-          Add user
-        </Button>
-      </Flex>
+      <PageHeader
+        title="Users"
+        subtitle="Admin accounts for watchtower and console — used to sign in at /admin and to become Operators."
+        primaryAction={
+          <Button startIcon={<Plus />} onClick={() => setAddOpen(true)}>
+            Add user
+          </Button>
+        }
+      />
 
       <Table colCount={4} rowCount={users.length + 1}>
         <Thead>

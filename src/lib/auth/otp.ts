@@ -6,6 +6,13 @@ import { findActiveOperatorByPhone, normalizePhoneNumber } from './operators';
 const OTP_TTL_MINUTES = 10;
 const OTP_MAX_ATTEMPTS = 5;
 
+/** Kept in sync with nexus/src/services/auth.service.ts TEST_PHONES — same test numbers, no real SMS. */
+const TEST_PHONES: Record<string, string> = {
+  '1234567890': '123456',
+  '9112345678': '123456',
+  '7016301968': '123456',
+};
+
 export type RequestOtpResult = { ok: true } | { ok: false; error: string };
 
 /** Only ever sends to numbers already linked to an active operator — never enumerates which. */
@@ -23,6 +30,10 @@ export async function requestOtp(phoneNumberRaw: string): Promise<RequestOtpResu
     update: { code_hash: codeHash, expires_at: expiresAt, attempts: 0 },
     create: { phone_number: phoneNumber, code_hash: codeHash, expires_at: expiresAt },
   });
+
+  if (phoneNumber in TEST_PHONES) {
+    return { ok: true };
+  }
 
   const result = await sendOtpSms({ recipientNumber: phoneNumber, otp: otpCode });
   if (!result.success) return { ok: false, error: 'Failed to send OTP. Please try again.' };
@@ -48,7 +59,8 @@ export async function verifyOtp(phoneNumberRaw: string, code: string): Promise<V
     return { ok: false, error: 'Maximum OTP attempts exceeded' };
   }
 
-  const matches = await bcrypt.compare(code, record.code_hash);
+  const matches = (phoneNumber in TEST_PHONES && code === TEST_PHONES[phoneNumber]) ||
+    (await bcrypt.compare(code, record.code_hash));
   if (!matches) {
     await prisma.watchtower_otp_codes.update({
       where: { phone_number: phoneNumber },

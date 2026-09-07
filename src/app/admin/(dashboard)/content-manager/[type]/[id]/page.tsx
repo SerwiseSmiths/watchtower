@@ -1,6 +1,6 @@
 import { notFound } from 'next/navigation';
 import { allComponents, getContentType, resolveContentTypeSlug, slugForContentType } from '@/lib/content-schema/registry';
-import { findEntityByDocumentId, findSingleType, listEntities } from '@/lib/db/entity-repository';
+import { findEntityByDocumentId, findSingleType, getEntityAuthorNames, listEntities } from '@/lib/db/entity-repository';
 import { prisma } from '@/lib/db/prisma';
 import type { ComponentDef, MediaLibraryFile, RelationOption } from './AttributeField';
 import EntityForm from './EntityForm';
@@ -26,6 +26,26 @@ export default async function EntityEditPage({ params }: { params: Promise<{ typ
     entity = await findEntityByDocumentId(schema.uid, id, { status: 'draft' });
     if (!entity) notFound();
   }
+
+  // A document is "modified" once its draft row has been edited after the published row was
+  // last written — same signal Strapi's own DocumentStatus badge uses to distinguish a stale
+  // published entry from one whose draft exactly matches what's live.
+  let documentStatus: 'draft' | 'published' | 'modified' = 'draft';
+  if (schema.draftAndPublish && entity) {
+    const published =
+      schema.kind === 'singleType'
+        ? await findSingleType(schema.uid, { status: 'published' })
+        : await findEntityByDocumentId(schema.uid, id, { status: 'published' });
+    if (published) {
+      const draftUpdatedAt = entity.updatedAt ? new Date(entity.updatedAt as string).getTime() : 0;
+      const publishedUpdatedAt = published.updatedAt ? new Date(published.updatedAt as string).getTime() : 0;
+      documentStatus = draftUpdatedAt > publishedUpdatedAt ? 'modified' : 'published';
+    }
+  }
+
+  const authors = entity
+    ? await getEntityAuthorNames(schema.collectionName, entity.id as number)
+    : { createdBy: null, updatedBy: null };
 
   const relationOptions: Record<string, RelationOption[]> = {};
   for (const [name, field] of Object.entries(schema.attributes)) {
@@ -66,6 +86,9 @@ export default async function EntityEditPage({ params }: { params: Promise<{ typ
       attributes={schema.attributes}
       draftAndPublish={schema.draftAndPublish}
       entity={entity}
+      documentStatus={documentStatus}
+      isSingleType={schema.kind === 'singleType'}
+      authors={authors}
       components={components}
       relationOptions={relationOptions}
       mediaLibrary={mediaLibrary}

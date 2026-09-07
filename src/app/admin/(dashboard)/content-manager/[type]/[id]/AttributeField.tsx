@@ -8,10 +8,13 @@ import {
   Button,
   Combobox,
   ComboboxOption,
+  DatePicker,
+  DateTimePicker,
   Field,
   Flex,
   Grid,
   IconButton,
+  JSONInput,
   Modal,
   NumberInput,
   SingleSelect,
@@ -108,12 +111,54 @@ function ScalarField({ name, field, value, onChange }: AttributeFieldProps) {
   if (field.type === 'text') {
     return <Textarea name={name} value={(value as string) ?? ''} onChange={(e) => onChange(e.target.value)} />;
   }
+  if (field.type === 'date') {
+    const dateValue = value ? new Date(value as string | number | Date) : undefined;
+    return <DatePicker name={name} value={dateValue} onChange={(date) => onChange(date ?? null)} clearLabel="Clear" onClear={() => onChange(null)} />;
+  }
+  if (field.type === 'datetime') {
+    const dateValue = value ? new Date(value as string | number | Date) : undefined;
+    return <DateTimePicker name={name} value={dateValue} onChange={(date) => onChange(date ?? null)} clearLabel="Clear" onClear={() => onChange(null)} />;
+  }
+  if (field.type === 'json') {
+    return <JsonField value={value} onChange={onChange} />;
+  }
   return (
     <TextInput
       name={name}
       value={(value as string) ?? ''}
       onChange={(e: React.ChangeEvent<HTMLInputElement>) => onChange(e.target.value)}
     />
+  );
+}
+
+function JsonField({ value, onChange }: { value: unknown; onChange: (value: unknown) => void }) {
+  const [text, setText] = useState(() => (value == null ? '' : JSON.stringify(value, null, 2)));
+  const [error, setError] = useState<string | null>(null);
+
+  function handleChange(next: string) {
+    setText(next);
+    if (next.trim() === '') {
+      setError(null);
+      onChange(null);
+      return;
+    }
+    try {
+      onChange(JSON.parse(next));
+      setError(null);
+    } catch {
+      setError('Invalid JSON');
+    }
+  }
+
+  return (
+    <Flex direction="column" alignItems="stretch" gap={1}>
+      <JSONInput value={text} onChange={handleChange} hasError={!!error} />
+      {error && (
+        <Typography variant="pi" textColor="danger600">
+          {error}
+        </Typography>
+      )}
+    </Flex>
   );
 }
 
@@ -500,9 +545,9 @@ function ComponentField({ field, value, onChange, components, relationOptions, m
 }
 
 function DynamicZoneField({ field, value, onChange, components, relationOptions, mediaLibrary }: AttributeFieldProps) {
+  const [picking, setPicking] = useState(false);
   if (field.kind !== 'dynamiczone') return null;
   const items = (Array.isArray(value) ? value : []) as Array<Record<string, unknown> & { __component: string }>;
-  const [picking, setPicking] = useState(false);
 
   return (
     <Flex direction="column" alignItems="stretch" gap={2}>

@@ -18,6 +18,8 @@ import {
 import { STATUS_COLORS } from './statusColors';
 import AddApplianceForm from './AddApplianceForm';
 import ReassignPopover from './ReassignPopover';
+import QuoteResponseActions from './QuoteResponseActions';
+import TicketLifecycleActions from './TicketLifecycleActions';
 
 type StageKey = 'RAISED' | 'ASSIGNED' | 'ENTRANCE' | 'ESTIMATION' | 'APPROVAL' | 'PAYMENT' | 'IN_WARRANTY' | 'COMPLETED' | 'CANCELLED';
 
@@ -367,6 +369,11 @@ export default function TicketDetailPanel({
             <div style={{ ...labelStyle, marginTop: 4 }}>{content.startDate}</div>
           </div>
 
+          <TicketLifecycleActions
+            complaintId={content.complaintId}
+            isClosed={content.stage === 'COMPLETED' || content.stage === 'REJECTED'}
+          />
+
           <div style={{ borderBottom: '2px solid #E5E5E5', paddingBottom: 15 }}>
             <div style={{ ...labelStyle, marginBottom: 6 }}>Current Stage &amp; Activity</div>
             <div className="d-flex justify-content-between align-items-end mb-2">
@@ -461,7 +468,13 @@ export default function TicketDetailPanel({
             )}
           </div>
 
-          {content.quote && (
+          {content.quote && content.quote.status === 'PENDING' && (
+            <div style={{ paddingTop: 15, flexShrink: 0 }}>
+              <QuoteResponseActions complaintId={content.complaintId} />
+            </div>
+          )}
+
+          {content.quote && content.quote.status !== 'PENDING' && (
             <div className="d-flex" style={{ gap: 10, paddingTop: 15, flexShrink: 0 }}>
               <button type="button" style={{ flex: 1, background: '#E5E5E5', border: 'none', borderRadius: 5, padding: '10px', fontSize: 10, fontWeight: 600, letterSpacing: '-0.03em', color: '#000000' }}>
                 invoice

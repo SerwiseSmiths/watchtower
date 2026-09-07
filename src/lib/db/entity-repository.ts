@@ -2,6 +2,7 @@ import { randomBytes } from 'crypto';
 import { prisma } from './prisma';
 import { cmpsTableName, getComponent, getContentType, getRelationTable, toColumnName } from '../content-schema/registry';
 import type { ContentTypeSchema, FieldSchema } from '../content-schema/types';
+import { logAudit } from '@/lib/audit/log';
 
 type Row = Record<string, unknown>;
 type PrismaModel = {
@@ -16,10 +17,69 @@ type PrismaModel = {
 
 const prismaAny = prisma as unknown as Record<string, PrismaModel>;
 
+/**
+ * Caps the number of Prisma queries in flight at once, regardless of how deeply nested
+ * the call site is (a single content-type row can fan out into many queries — media,
+ * components, and each component's own relations). Two failure modes without this:
+ *   - Unbounded concurrency (plain Promise.all) blows past the DB's connection_limit and
+ *     the pool times out (P2024) once a content type has more than a handful of rows
+ *     with relations/media.
+ *   - Full serialization (one query at a time) avoids that crash but is extremely slow
+ *     against a remote pooled DB (Neon) where every round trip pays real network
+ *     latency — a page hydrating dozens of rows this way can take over a minute.
+ * A small concurrency cap gets real parallelism back while staying under the pool limit.
+ */
+class Semaphore {
+  private active = 0;
+  private queue: (() => void)[] = [];
+
+  constructor(private readonly limit: number) {}
+
+  async acquire(): Promise<() => void> {
+    if (this.active < this.limit) {
+      this.active++;
+      return () => this.release();
+    }
+    return new Promise((resolve) => {
+      this.queue.push(() => {
+        this.active++;
+        resolve(() => this.release());
+      });
+    });
+  }
+
+  private release() {
+    this.active--;
+    const next = this.queue.shift();
+    if (next) next();
+  }
+}
+
+// One less than the DB's connection_limit (5) — leaves headroom for a concurrent
+// unrelated request on the same serverless instance.
+const dbSemaphore = new Semaphore(4);
+
+async function withDbLimit<T>(fn: () => Promise<T>): Promise<T> {
+  const release = await dbSemaphore.acquire();
+  try {
+    return await fn();
+  } finally {
+    release();
+  }
+}
+
 function model(tableName: string): PrismaModel {
   const m = prismaAny[tableName];
   if (!m) throw new Error(`No Prisma model for table "${tableName}" — did you run \`yarn prisma:pull\`?`);
-  return m;
+  return {
+    findMany: (args) => withDbLimit(() => m.findMany(args)),
+    findUnique: (args) => withDbLimit(() => m.findUnique(args)),
+    count: (args) => withDbLimit(() => m.count(args)),
+    create: (args) => withDbLimit(() => m.create(args)),
+    update: (args) => withDbLimit(() => m.update(args)),
+    delete: (args) => withDbLimit(() => m.delete(args)),
+    deleteMany: (args) => withDbLimit(() => m.deleteMany(args)),
+  };
 }
 
 async function hydrateMedia(ownerUid: string, ownerId: number, fieldName: string, multiple: boolean) {
@@ -93,6 +153,15 @@ function shallowScalars(row: Row, attributes: Record<string, FieldSchema>): Row 
   return result;
 }
 
+/** Reverse-looks-up which owner rows are linked to a given target id — used by the list view's
+ * relation filter ("device type is X") without needing a real Prisma relation defined on the
+ * hand-curated `_lnk` tables. */
+export async function findOwnerIdsByRelationTarget(ownerUid: string, fieldName: string, targetId: number): Promise<number[]> {
+  const map = getRelationTable(ownerUid, fieldName);
+  const links = await model(map.table).findMany({ where: { [map.targetColumn]: targetId } });
+  return links.map((l) => l[map.ownerColumn] as number | null).filter((id): id is number => id != null);
+}
+
 async function hydrateRelation(ownerUid: string, ownerId: number, fieldName: string, targetUid: string) {
   const map = getRelationTable(ownerUid, fieldName);
   const orderBy = map.targetOrderColumn ? { orderBy: { [map.targetOrderColumn]: 'asc' } } : {};
@@ -154,6 +223,160 @@ export async function hydrateAttributes(
   return hydrated;
 }
 
+/**
+ * Same output shape as calling `hydrateAttributes` once per row, but batched across every
+ * row in a list: media and relation fields each cost exactly 2 queries total (one link-table
+ * lookup with `owner IN (...)`, one target lookup with `id IN (...)`) instead of 2 queries
+ * PER ROW. This is what a list of any real size needs — `hydrateAttributes` fans out
+ * correctly, but it's an N+1: 174 service parts each pulling their own `device_types`
+ * relation was ~350 separate round trips to a remote pooled DB (Neon), which is what made
+ * `/pricing` take 13+ seconds even with the connection-pool semaphore in place (that capped
+ * concurrency so it didn't crash, but did nothing about the query COUNT).
+ * Component fields are batched too, recursively — a component's own relation fields (e.g. a
+ * subscription plan's visit_services, each carrying a service_parts relation) collapse the
+ * same way. Only dynamiczone stays per-row (mixed component types per link; not worth
+ * batching until a dynamiczone-heavy list actually turns up slow).
+ */
+async function hydrateAttributesForRows(
+  ownerUid: string,
+  collectionName: string,
+  rows: Row[],
+  attributes: Record<string, FieldSchema>,
+): Promise<Row[]> {
+  if (rows.length === 0) return [];
+
+  const rowIds = rows.map((r) => r.id as number);
+  const byId = new Map<number, Row>(
+    rows.map((row) => [
+      row.id as number,
+      { id: row.id, documentId: row.document_id, createdAt: row.created_at, updatedAt: row.updated_at, publishedAt: row.published_at },
+    ]),
+  );
+
+  for (const [name, field] of Object.entries(attributes)) {
+    if (field.kind === 'scalar') {
+      for (const row of rows) {
+        const raw = row[toColumnName(name)];
+        byId.get(row.id as number)![name] = field.type === 'decimal' && raw != null ? Number(raw) : raw;
+      }
+      continue;
+    }
+
+    if (field.kind === 'media') {
+      const links = await model('files_related_mph').findMany({
+        where: { related_id: { in: rowIds }, related_type: ownerUid, field: name },
+        orderBy: { order: 'asc' },
+      });
+      const fileIds = [...new Set(links.map((l) => l.file_id as number | null).filter((id): id is number => id != null))];
+      const files = fileIds.length ? await model('files').findMany({ where: { id: { in: fileIds } } }) : [];
+      const filesById = new Map(files.map((f) => [f.id as number, f]));
+      const linksByOwner = new Map<number, Row[]>();
+      for (const link of links) {
+        const ownerId = link.related_id as number;
+        (linksByOwner.get(ownerId) ?? linksByOwner.set(ownerId, []).get(ownerId)!).push(link);
+      }
+      for (const row of rows) {
+        const ownerLinks = linksByOwner.get(row.id as number) ?? [];
+        const ordered = ownerLinks.map((l) => filesById.get(l.file_id as number)).filter((f): f is Row => !!f);
+        byId.get(row.id as number)![name] = field.multiple ? ordered : (ordered[0] ?? null);
+      }
+      continue;
+    }
+
+    if (field.kind === 'relation') {
+      const map = getRelationTable(ownerUid, name);
+      const links = await model(map.table).findMany({
+        where: { [map.ownerColumn]: { in: rowIds } },
+        ...(map.targetOrderColumn ? { orderBy: { [map.targetOrderColumn]: 'asc' as const } } : {}),
+      });
+      const targetIds = [...new Set(links.map((l) => l[map.targetColumn] as number | null).filter((id): id is number => id != null))];
+      const targetType = getContentType(field.target);
+      const targets = targetIds.length ? await model(targetType.collectionName).findMany({ where: { id: { in: targetIds } } }) : [];
+      const targetsById = new Map(targets.map((t) => [t.id as number, shallowScalars(t, targetType.attributes)]));
+      const linksByOwner = new Map<number, Row[]>();
+      for (const link of links) {
+        const ownerId = link[map.ownerColumn] as number;
+        (linksByOwner.get(ownerId) ?? linksByOwner.set(ownerId, []).get(ownerId)!).push(link);
+      }
+      for (const row of rows) {
+        const ownerLinks = linksByOwner.get(row.id as number) ?? [];
+        const ordered = ownerLinks.map((l) => targetsById.get(l[map.targetColumn] as number)).filter((t): t is Row => !!t);
+        byId.get(row.id as number)![name] = ordered;
+      }
+      continue;
+    }
+
+    if (field.kind === 'component') {
+      // Batched two levels deep: one query for every owner's component links, one for all
+      // the component rows themselves, then hydrateAttributesForRows recurses on THOSE rows
+      // — so a relation living inside a repeatable component (e.g. a subscription plan's
+      // visit_services, each with its own service_parts relation) also collapses from one
+      // query pair per component instance down to one query pair total, not just one per
+      // owning row. This was the remaining N+1 after the top-level relation batching above:
+      // 6 plans x ~3 visit_services x 2 queries = ~36 unbatched round trips for that one field.
+      const links = await model(cmpsTableName(collectionName)).findMany({
+        where: { entity_id: { in: rowIds }, field: name },
+        orderBy: { order: 'asc' },
+      });
+      const component = getComponent(field.component);
+      const cmpIds = [...new Set(links.map((l) => l.cmp_id as number | null).filter((id): id is number => id != null))];
+      const cmpRows = cmpIds.length ? await model(component.collectionName).findMany({ where: { id: { in: cmpIds } } }) : [];
+      const hydratedCmpRows = await hydrateAttributesForRows(field.component, component.collectionName, cmpRows, component.attributes);
+      const hydratedById = new Map(hydratedCmpRows.map((r) => [r.id as number, r]));
+      const linksByOwner = new Map<number, Row[]>();
+      for (const link of links) {
+        const ownerId = link.entity_id as number;
+        (linksByOwner.get(ownerId) ?? linksByOwner.set(ownerId, []).get(ownerId)!).push(link);
+      }
+      for (const row of rows) {
+        const ownerLinks = linksByOwner.get(row.id as number) ?? [];
+        const ordered = ownerLinks.map((l) => hydratedById.get(l.cmp_id as number)).filter((r): r is Row => !!r);
+        byId.get(row.id as number)![name] = field.repeatable ? ordered : (ordered[0] ?? null);
+      }
+      continue;
+    }
+
+    // dynamiczone — still per-row (bounded by the model() semaphore). Rarer and mixes
+    // component types per link, which would need per-type batching; not worth it unless
+    // a dynamiczone-heavy list turns up slow in practice.
+    await Promise.all(
+      rows.map(async (row) => {
+        const value = await hydrateDynamicZone(collectionName, row.id as number, name);
+        byId.get(row.id as number)![name] = value;
+      }),
+    );
+  }
+
+  return rows.map((row) => byId.get(row.id as number)!);
+}
+
+function adminUserLabel(user: Row | undefined): string | null {
+  if (!user) return null;
+  const name = `${user.firstname ?? ''} ${user.lastname ?? ''}`.trim();
+  return name || (user.email as string | undefined) || null;
+}
+
+/** Resolves the `created_by_id`/`updated_by_id` columns (present on every content-type/component
+ * table but deliberately left out of `hydrateAttributes`'s business-shape output) into admin display
+ * names, for the edit view's "Information" sidebar panel. */
+export async function getEntityAuthorNames(
+  collectionName: string,
+  id: number,
+): Promise<{ createdBy: string | null; updatedBy: string | null }> {
+  const row = await model(collectionName).findUnique({ where: { id } });
+  const createdById = row?.created_by_id as number | null | undefined;
+  const updatedById = row?.updated_by_id as number | null | undefined;
+  const ids = [createdById, updatedById].filter((v): v is number => typeof v === 'number');
+  if (ids.length === 0) return { createdBy: null, updatedBy: null };
+
+  const users = await model('admin_users').findMany({ where: { id: { in: ids } } });
+  const usersById = new Map(users.map((u) => [u.id as number, u]));
+  return {
+    createdBy: createdById != null ? adminUserLabel(usersById.get(createdById)) : null,
+    updatedBy: updatedById != null ? adminUserLabel(usersById.get(updatedById)) : null,
+  };
+}
+
 export interface ListOptions {
   status?: 'draft' | 'published';
   page?: number;
@@ -202,9 +425,10 @@ export async function listEntities(contentTypeUid: string, options: ListOptions 
     model(schema.collectionName).count({ where }),
   ]);
 
-  const data = await Promise.all(
-    rows.map(async (row) => pickFields(await hydrateAttributes(schema.uid, schema.collectionName, row, schema.attributes), options.fields)),
-  );
+  // Batched across the whole page of rows (see hydrateAttributesForRows) rather than the
+  // per-row hydrateAttributes — for a list, media/relation fields would otherwise be an N+1.
+  const hydratedRows = await hydrateAttributesForRows(schema.uid, schema.collectionName, rows, schema.attributes);
+  const data = hydratedRows.map((row) => pickFields(row, options.fields));
 
   return {
     data,
@@ -426,6 +650,13 @@ async function writeNestedFields(
   }
 }
 
+/** Best-effort human-readable label for an audit-log entry — tries the common
+ *  "display name" attributes before falling back to the raw id. */
+function labelFor(row: Row): string | undefined {
+  const candidate = (row.label ?? row.name ?? row.key ?? row.title) as string | undefined;
+  return candidate ?? undefined;
+}
+
 export async function createEntity(contentTypeUid: string, data: Row) {
   const schema = getContentType(contentTypeUid);
   const now = new Date();
@@ -440,19 +671,85 @@ export async function createEntity(contentTypeUid: string, data: Row) {
     },
   });
   await writeNestedFields(schema.uid, schema.collectionName, row.id as number, schema.attributes, data);
-  return findEntity(contentTypeUid, row.id as number);
+  const created = await findEntity(contentTypeUid, row.id as number);
+  await logAudit({
+    module: schema.singularName,
+    action: 'CREATE',
+    entityId: String(row.id),
+    entityLabel: created ? labelFor(created) : undefined,
+    after: created ?? undefined,
+  });
+  return created;
 }
 
 export async function updateEntity(contentTypeUid: string, id: number, data: Row) {
   const schema = getContentType(contentTypeUid);
+  const before = await findEntity(contentTypeUid, id);
   const scalarData = buildScalarData(schema.attributes, data);
   await model(schema.collectionName).update({ where: { id }, data: { ...scalarData, updated_at: new Date() } });
   await writeNestedFields(schema.uid, schema.collectionName, id, schema.attributes, data);
-  return findEntity(contentTypeUid, id);
+  const after = await findEntity(contentTypeUid, id);
+  await logAudit({
+    module: schema.singularName,
+    action: 'UPDATE',
+    entityId: String(id),
+    entityLabel: (after && labelFor(after)) ?? (before && labelFor(before)),
+    before: before ?? undefined,
+    after: after ?? undefined,
+  });
+  return after;
+}
+
+/** Finds which scalar attribute owns a Prisma unique-constraint violation's target column, so the
+ * caller can report something like `"slug" must be unique` instead of a raw Postgres error. */
+function uniqueViolationField(schema: ContentTypeSchema, err: unknown): string | null {
+  if (typeof err !== 'object' || err === null || (err as { code?: string }).code !== 'P2002') return null;
+  const target = (err as { meta?: { target?: string[] | string } }).meta?.target;
+  const columns = Array.isArray(target) ? target : typeof target === 'string' ? [target] : [];
+  for (const [name, field] of Object.entries(schema.attributes)) {
+    if (field.kind === 'scalar' && columns.includes(toColumnName(name))) return name;
+  }
+  return null;
+}
+
+/**
+ * Clones a document's draft into a brand-new document (fresh `document_id`, always created as a
+ * draft even for draftAndPublish types — matching Strapi's own "Duplicate" action). Proactively
+ * dodges the most common unique-constraint collisions (uid fields, `unique: true` scalars) the way
+ * Strapi's real duplicate flow does; if a collision still slips through, throws a message naming the
+ * offending field instead of a raw Postgres error, for the caller to surface as a failure dialog.
+ */
+export async function duplicateEntity(contentTypeUid: string, documentId: string) {
+  const schema = getContentType(contentTypeUid);
+  const source = await findEntityByDocumentId(contentTypeUid, documentId, { status: 'draft' });
+  if (!source) throw new Error('Entity not found');
+
+  const clone: Row = { ...source };
+  delete clone.id;
+  delete clone.documentId;
+  delete clone.createdAt;
+  delete clone.updatedAt;
+  delete clone.publishedAt;
+
+  const suffix = generateDocumentId(6);
+  for (const [name, field] of Object.entries(schema.attributes)) {
+    if (field.kind !== 'scalar' || typeof clone[name] !== 'string') continue;
+    if (field.type === 'uid') clone[name] = `${clone[name]}-copy-${suffix}`;
+    else if (field.unique) clone[name] = `${clone[name]} (copy)`;
+  }
+
+  try {
+    return await createEntity(contentTypeUid, clone);
+  } catch (err) {
+    const conflictField = uniqueViolationField(schema, err);
+    if (conflictField) throw new Error(`Could not duplicate this entry: the "${conflictField}" field must be unique.`);
+    throw err;
+  }
 }
 
 export async function deleteEntity(contentTypeUid: string, id: number) {
   const schema = getContentType(contentTypeUid);
+  const before = await findEntity(contentTypeUid, id);
   for (const [name, field] of Object.entries(schema.attributes)) {
     if (field.kind === 'media') {
       await model('files_related_mph').deleteMany({ where: { related_id: id, related_type: schema.uid, field: name } });
@@ -462,6 +759,13 @@ export async function deleteEntity(contentTypeUid: string, id: number) {
     // relations clean up via ON DELETE CASCADE on the `_lnk` tables' owner FK.
   }
   await model(schema.collectionName).delete({ where: { id } });
+  await logAudit({
+    module: schema.singularName,
+    action: 'DELETE',
+    entityId: String(id),
+    entityLabel: before ? labelFor(before) : undefined,
+    before: before ?? undefined,
+  });
 }
 
 /**

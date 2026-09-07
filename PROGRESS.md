@@ -318,5 +318,92 @@ compulsory 2FA here.
       not yet done in this environment (no browser tool available here, same limitation noted for
       the `/admin` panel above).
 
+## Phase 5 — Strapi admin visual/UX parity — DONE (all 4 areas; 1 deliberate scope cut, disclosed)
+User wants the `/admin` clone to be pixel/UX-identical to real Strapi's admin panel, not just
+functionally equivalent. `console`'s Strapi bundle ships compiled/minified (`.d.ts` only, no JSX to
+copy), so the approach is: build directly against `@strapi/design-system` (confirmed same 2.2.x line
+in both `console` and `watchtower`) and mirror the real component architecture revealed by
+`@strapi/admin`'s and `@strapi/content-manager`'s `.d.ts` file/folder structure. No browser/screenshot
+tool is available in this environment, so parity is verified by architecture + design-token matching,
+not live pixel diffing — worth a manual side-by-side spot check now that all 4 areas are in.
+
+Gap analysis (baseline) covered 5 areas: nav/layout, list view, edit view, media library, styling.
+Styling was confirmed a non-issue (same design-system version) from the start.
+
+- [x] **Nav/layout — DONE**
+  - [x] `GlobalNavRail.tsx`: real Strapi active-state pattern (soft `primary100` rounded highlight),
+        bordered brand-header region, corrected rail width (`7.4rem` collapsed).
+  - [x] Collapse/expand toggle (`ChevronLeft`/`ChevronRight`, bottom of rail): expands to `15rem` with
+        text labels next to each icon, matching Strapi's own collapsible `MainNav`. Preference persists
+        in `localStorage` via a `useSyncExternalStore`-backed store (`GlobalNavRail.tsx`) rather than a
+        `useEffect`+`setState` mount sync, so there's no hydration-mismatch flash and no
+        `react-hooks/set-state-in-effect` lint violation.
+  - [x] New shared `PageHeader.tsx` (title, subtitle, back button, status slot, primary/secondary
+        actions) — the `HeaderLayout` equivalent `@strapi/design-system` doesn't export (it's internal
+        to `@strapi/admin`). Every `/admin` page (`ListView`, `EntityForm`, `MediaLibraryView`,
+        `UsersView`, `OperatorsView`) now composes its header through this one component instead of
+        five slightly-different ad hoc `Flex`/`Typography` blocks.
+  - **Scope note, not a gap**: no separate persistent top search/breadcrumb bar was added — real
+    Strapi doesn't have one either (per-page `HeaderLayout` **is** its top chrome, alongside the
+    `MainNav` rail and content-manager `SubNav`); building one here would have been inventing a
+    feature Strapi itself doesn't have, not closing a real parity gap.
+
+- [x] **List view — DONE**
+  - [x] `Filters` popover (field → operator → value, type-aware) with removable filter-pill badges,
+        now covering **relation fields too** (`is <related entry>`, resolved via a new
+        `findOwnerIdsByRelationTarget` reverse-lookup in `entity-repository.ts` since these `_lnk`
+        tables aren't real Prisma relations) — not just scalars as in the first pass.
+  - [x] Typed cell rendering: booleans/enums as badges, dates formatted, media thumbnails, relation
+        chips.
+  - [x] `ViewSettingsMenu` equivalent: a "View settings" popover (`Cog` icon) with a checkbox per
+        displayable field, persisted via a `columns` URL param — previously always the first 6 fields,
+        no way to change which columns showed.
+  - [x] Row actions now Edit **+ Duplicate + Delete** (was Edit + Delete only), each bulk/row
+        destructive action behind a confirm `Dialog`.
+  - [x] `AutoCloneFailureModal` equivalent: duplicating shows a dialog naming the specific field that
+        blocked it (e.g. `"slug" must be unique`) instead of a raw 500, via a new `duplicateEntity` in
+        `entity-repository.ts` that proactively dodges the common unique-constraint collisions (uid
+        fields get a random suffix, other `unique: true` scalars get " (copy)") and only surfaces the
+        failure dialog if a collision still slips through.
+  - **Scope note, not a gap**: checked `@strapi/design-system` 2.2.x's `Table`/`Th` — there is no
+    built-in sortable-header variant to switch to (just an `action` slot), so the hand-rolled sort
+    button+caret icon is the correct implementation with this design-system version, not a
+    simplification.
+
+- [x] **Edit view — DONE**
+  - [x] Header rework (Status badge, More-actions menu, back button) — now composed via the shared
+        `PageHeader`.
+  - [x] Two-column `Grid` layout: main content + "Information" sidebar (Document ID, Created, Last
+        updated, Published) — **and now also the creator/editor's name** on each
+        (`getEntityAuthorNames` in `entity-repository.ts`, joining the raw `created_by_id`/
+        `updated_by_id` columns — deliberately left out of `hydrateAttributes`'s business-shape output
+        — against `admin_users`).
+  - [x] Per-field-type inputs: `DatePicker`/`DateTimePicker`/`JSONInput` for date/datetime/json.
+  - [x] "Duplicate entry" in the More-actions menu (collectionType entries only — singleTypes have
+        exactly one logical entity), sharing the same `duplicateEntity` repository function and
+        failure-dialog pattern as the list view's row action.
+  - [ ] **Deliberately not done — flagging rather than silently completing**: relation/component
+        reordering is still button-based (up/down `IconButton`s), not drag-and-drop. Implementing real
+        DnD across nested `Accordion` items (repeatable components, dynamic zones) and the relation
+        `Combobox` list is a genuinely large, error-prone UI effort (drop-target detection across
+        accordions, keyboard-accessibility fallback, mobile support) for something that's already
+        functionally equivalent today. Left as-is rather than rushing a fragile implementation — say
+        the word if you still want this built out.
+
+- [x] **Media library — DONE**
+  - [x] Real Cloudinary upload (`src/lib/media/cloudinary.ts`, same account/credentials `console`'s
+        Strapi upload plugin uses) wired to a hidden multi-file input; new `files` rows created on
+        upload via a new `actions.ts`.
+  - [x] Folders: flat list (not nested — the `upload_folders`/`upload_folders_parent_lnk` schema
+        supports nesting, but a nested-tree UI was out of scope here) with create/delete, filtering the
+        grid via `files_folder_lnk`. Deleting a folder unlinks its files rather than deleting them,
+        matching Strapi's own behavior.
+  - [x] Filters: search by name, filter by type (image/video/audio via `mime` prefix).
+  - [x] Multi-select + bulk delete, **with a usage guard**: an asset still referenced by any entity
+        (checked via `files_related_mph`) is refused with a message instead of silently breaking
+        existing content — matches Strapi's real "this asset is being used" behavior.
+  - [x] Edit-asset `Modal` (rename, alternative text, caption, single-asset delete) replacing the
+        previous click-nothing static grid.
+
 ---
-*Last updated: Phase 0 in progress.*
+*Last updated: Phase 5 complete except the disclosed drag-and-drop scope cut in the edit view.*

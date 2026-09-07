@@ -138,9 +138,10 @@ model admin_users {
   up_users_up_users_updated_by_idToadmin_users                                                   up_users[]                          @relation("up_users_updated_by_idToadmin_users")
   upload_folders_upload_folders_created_by_idToadmin_users                                       upload_folders[]                    @relation("upload_folders_created_by_idToadmin_users")
   upload_folders_upload_folders_updated_by_idToadmin_users                                       upload_folders[]                    @relation("upload_folders_updated_by_idToadmin_users")
+  watchtower_audit_logs                                                                          watchtower_audit_logs[]
+  watchtower_root_operator                                                                       watchtower_root_operators?
   welcome_bonus_welcome_bonus_created_by_idToadmin_users                                         welcome_bonus[]                     @relation("welcome_bonus_created_by_idToadmin_users")
   welcome_bonus_welcome_bonus_updated_by_idToadmin_users                                         welcome_bonus[]                     @relation("welcome_bonus_updated_by_idToadmin_users")
-  watchtower_root_operator                                                                       watchtower_root_operators?
 
   @@index([document_id, locale, published_at], map: "admin_users_documents_idx")
 }
@@ -1129,50 +1130,42 @@ model welcome_bonus {
   @@index([document_id, locale, published_at], map: "welcome_bonus_documents_idx")
 }
 
-// ─── Root login (`/`) — phone+OTP+passkey ──────────────────────────────────
-// Brand-new tables watchtower alone owns (see prisma/manual-migrations/0001_watchtower_root_login.sql).
-// No existing Strapi-owned table/column was changed. Being present in watchtower_root_operators
-// IS the "admin role" gate for root login.
-
 model watchtower_root_operators {
-  id            Int       @id @default(autoincrement())
-  admin_user_id Int       @unique
-  phone_number  String    @unique @db.VarChar(32)
-  is_active     Boolean   @default(true)
-  created_at    DateTime  @default(now()) @db.Timestamp(6)
-  updated_at    DateTime  @default(now()) @db.Timestamp(6)
-
-  admin_user  admin_users                       @relation(fields: [admin_user_id], references: [id], onDelete: Cascade, map: "watchtower_root_operators_admin_user_fk")
-  enrollments watchtower_passkey_enrollments[]
-  credentials watchtower_webauthn_credentials[]
+  id            Int                               @id @default(autoincrement())
+  admin_user_id Int                               @unique
+  phone_number  String                            @unique @db.VarChar(32)
+  is_active     Boolean                           @default(true)
+  created_at    DateTime                          @default(now()) @db.Timestamp(6)
+  updated_at    DateTime                          @default(now()) @db.Timestamp(6)
+  enrollments   watchtower_passkey_enrollments[]
+  admin_user    admin_users                       @relation(fields: [admin_user_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "watchtower_root_operators_admin_user_fk")
+  credentials   watchtower_webauthn_credentials[]
 }
 
 model watchtower_passkey_enrollments {
-  id           Int       @id @default(autoincrement())
+  id           Int                       @id @default(autoincrement())
   operator_id  Int
-  token        String    @unique @db.VarChar(128)
-  device_label String?   @db.VarChar(255)
-  expires_at   DateTime  @db.Timestamp(6)
-  used_at      DateTime? @db.Timestamp(6)
-  created_at   DateTime  @default(now()) @db.Timestamp(6)
-
-  operator watchtower_root_operators @relation(fields: [operator_id], references: [id], onDelete: Cascade, map: "watchtower_passkey_enrollments_operator_fk")
+  token        String                    @unique @db.VarChar(128)
+  device_label String?                   @db.VarChar(255)
+  expires_at   DateTime                  @db.Timestamp(6)
+  used_at      DateTime?                 @db.Timestamp(6)
+  created_at   DateTime                  @default(now()) @db.Timestamp(6)
+  operator     watchtower_root_operators @relation(fields: [operator_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "watchtower_passkey_enrollments_operator_fk")
 
   @@index([operator_id], map: "watchtower_passkey_enrollments_operator_idx")
 }
 
 model watchtower_webauthn_credentials {
-  id            Int       @id @default(autoincrement())
+  id            Int                       @id @default(autoincrement())
   operator_id   Int
-  credential_id String    @unique @db.VarChar(512)
+  credential_id String                    @unique @db.VarChar(512)
   public_key    Bytes
-  counter       BigInt    @default(0)
-  device_label  String?   @db.VarChar(255)
+  counter       BigInt                    @default(0)
+  device_label  String?                   @db.VarChar(255)
   transports    Json?
-  created_at    DateTime  @default(now()) @db.Timestamp(6)
-  last_used_at  DateTime? @db.Timestamp(6)
-
-  operator watchtower_root_operators @relation(fields: [operator_id], references: [id], onDelete: Cascade, map: "watchtower_webauthn_credentials_operator_fk")
+  created_at    DateTime                  @default(now()) @db.Timestamp(6)
+  last_used_at  DateTime?                 @db.Timestamp(6)
+  operator      watchtower_root_operators @relation(fields: [operator_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "watchtower_webauthn_credentials_operator_fk")
 
   @@index([operator_id], map: "watchtower_webauthn_credentials_operator_idx")
 }
@@ -1184,4 +1177,22 @@ model watchtower_otp_codes {
   expires_at   DateTime @db.Timestamp(6)
   attempts     Int      @default(0)
   created_at   DateTime @default(now()) @db.Timestamp(6)
+}
+
+model watchtower_audit_logs {
+  id           Int          @id @default(autoincrement())
+  module       String       @db.VarChar(64)
+  action       String       @db.VarChar(16)
+  entity_id    String       @db.VarChar(64)
+  entity_label String?      @db.VarChar(255)
+  changes      Json?
+  actor_id     Int?
+  actor_name   String?      @db.VarChar(255)
+  created_at   DateTime     @default(now()) @db.Timestamp(6)
+  admin_users  admin_users? @relation(fields: [actor_id], references: [id], onUpdate: NoAction)
+
+  @@index([actor_id], map: "watchtower_audit_logs_actor_idx")
+  @@index([created_at(sort: Desc)], map: "watchtower_audit_logs_created_idx")
+  @@index([entity_id], map: "watchtower_audit_logs_entity_idx")
+  @@index([module])
 }
