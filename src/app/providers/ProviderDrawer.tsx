@@ -14,6 +14,7 @@ import {
 import { CloseIcon } from '../tickets/icons';
 import { SkillIcon, SKILL_LABELS, SKILL_ORDER } from './skillIcons';
 import AddressFields from './AddressFields';
+import ProviderLedgerDrawer from './ProviderLedgerDrawer';
 
 const inputStyle: CSSProperties = {
   width: '100%',
@@ -48,6 +49,7 @@ interface FormState {
   accountHolderName: string;
   ifscCode: string;
   isBankApproved: boolean;
+  walletBalance: number;
 }
 
 const EMPTY_FORM: FormState = {
@@ -66,6 +68,7 @@ const EMPTY_FORM: FormState = {
   accountHolderName: '',
   ifscCode: '',
   isBankApproved: false,
+  walletBalance: 0,
 };
 
 function providerToForm(provider: NexusProviderDetail): FormState {
@@ -85,6 +88,7 @@ function providerToForm(provider: NexusProviderDetail): FormState {
     accountHolderName: provider.bankAccount?.accountHolderName ?? '',
     ifscCode: provider.bankAccount?.ifscCode ?? '',
     isBankApproved: provider.bankAccount?.isApproved ?? false,
+    walletBalance: provider.stats.walletBalance,
   };
 }
 
@@ -105,6 +109,7 @@ export default function ProviderDrawer({
   const [approvingBank, setApprovingBank] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [tiers, setTiers] = useState<NexusProviderTier[]>([]);
+  const [ledgerMode, setLedgerMode] = useState<'view' | 'payout' | null>(null);
 
   useEffect(() => {
     if (!open) return;
@@ -223,6 +228,17 @@ export default function ProviderDrawer({
       setApprovingBank(false);
     }
   }
+
+  function handleLedgerRefresh() {
+    router.refresh();
+    if (providerId) {
+      fetchProviderDetailAction(providerId)
+        .then((provider) => setForm(providerToForm(provider)))
+        .catch(() => {});
+    }
+  }
+
+  const providerName = [form.firstName, form.lastName].filter(Boolean).join(' ') || form.phoneNo;
 
   if (!open && !visible) return null;
 
@@ -474,6 +490,48 @@ export default function ProviderDrawer({
               </div>
             </div>
 
+            {providerId && (
+              <div className="row g-3 mb-4">
+                <div className="col-6">
+                  <div style={fieldLabelStyle}>Wallet</div>
+                  <div className="d-flex justify-content-between align-items-center" style={{ background: '#EFEFEF', border: '1px solid #E5E5E5', borderRadius: 6, padding: '11px' }}>
+                    <div>
+                      <div style={{ fontSize: 10, fontWeight: 600, color: '#B7B7B7' }}>Current Balance</div>
+                      <div style={{ fontSize: 16, fontWeight: 700, color: form.walletBalance >= 0 ? '#0C8D6E' : '#E53935' }}>
+                        ₹{form.walletBalance.toFixed(2)}
+                      </div>
+                    </div>
+                    <div className="d-flex" style={{ gap: 8 }}>
+                      <button
+                        type="button"
+                        onClick={() => setLedgerMode('view')}
+                        style={{ background: 'transparent', color: '#181818', border: '1px solid #B7B7B7', borderRadius: 6, padding: '8px 12px', fontSize: 12, fontWeight: 600 }}
+                      >
+                        View Ledger
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setLedgerMode('payout')}
+                        disabled={form.walletBalance <= 0}
+                        style={{
+                          background: '#181818',
+                          color: '#FFFFFF',
+                          border: 'none',
+                          borderRadius: 6,
+                          padding: '8px 12px',
+                          fontSize: 12,
+                          fontWeight: 600,
+                          opacity: form.walletBalance <= 0 ? 0.5 : 1,
+                        }}
+                      >
+                        Payout
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
             {error && (
               <div className="mb-3" style={{ color: '#E53935', fontSize: 12, fontWeight: 600 }}>
                 {error}
@@ -502,6 +560,16 @@ export default function ProviderDrawer({
           </>
         )}
       </div>
+
+      <ProviderLedgerDrawer
+        open={ledgerMode !== null}
+        providerId={providerId}
+        providerName={providerName}
+        currentBalance={form.walletBalance}
+        mode={ledgerMode ?? 'view'}
+        onClose={() => setLedgerMode(null)}
+        onPayoutComplete={handleLedgerRefresh}
+      />
     </div>
   );
 }
