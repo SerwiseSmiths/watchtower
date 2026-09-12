@@ -12,6 +12,7 @@ import {
 } from '@/lib/nexus/providers';
 import { listProviderTiers, type NexusProviderTier } from '@/lib/nexus/providerTiers';
 import { autocompleteAddress, type AddressPrediction } from '@/lib/nexus/geocode';
+import { fetchProviderWalletHistory, payoutProviderWallet, type NexusWalletHistory } from '@/lib/nexus/wallet';
 import { logAudit } from '@/lib/audit/log';
 
 function providerLabel(p: { firstName: string | null; lastName: string | null; phoneNo: string }): string {
@@ -71,4 +72,22 @@ export async function approveProviderBankAccountAction(id: string): Promise<Nexu
     changes: { bankAccountApproved: { old: false, new: true } },
   });
   return bankAccount;
+}
+
+export async function fetchProviderLedgerAction(providerId: string, page = 1): Promise<NexusWalletHistory> {
+  return fetchProviderWalletHistory(providerId, page);
+}
+
+export async function payoutProviderAction(providerId: string, amount: number, note?: string): Promise<void> {
+  await payoutProviderWallet(providerId, amount, note);
+  revalidatePath('/providers');
+  updateTag('providers');
+  updateTag(`provider:${providerId}`);
+  await logAudit({
+    module: 'provider',
+    action: 'UPDATE',
+    entityId: providerId,
+    entityLabel: 'Provider payout',
+    changes: { walletPayout: { old: null, new: amount } },
+  });
 }
