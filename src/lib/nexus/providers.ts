@@ -40,6 +40,12 @@ export interface NexusProviderBankAccount {
   lastChangedAt: string;
 }
 
+export interface NexusDeviceTypeGroupSummary {
+  key: string;
+  name: string;
+  deviceTypes: DeviceTypeKey[];
+}
+
 export interface NexusProviderDetail {
   id: string;
   firstName: string | null;
@@ -48,7 +54,7 @@ export interface NexusProviderDetail {
   email: string | null;
   avatar: string | null;
   isActive: boolean;
-  skills: DeviceTypeKey[];
+  skillGroups: NexusDeviceTypeGroupSummary[];
   currentAddress: NexusProviderAddress | null;
   aadharAddress: NexusProviderAddress | null;
   adminNotes: string | null;
@@ -73,7 +79,10 @@ export interface ProviderInput {
   lastName: string;
   phoneNo: string;
   email?: string;
-  skills?: DeviceTypeKey[];
+  // Resolved to skillGroups server-side — picking any one device type from a
+  // multi-type group grants the whole group as a skill (see nexus's
+  // DeviceTypeGroupService.resolveGroupIdsForDeviceTypes).
+  deviceTypes?: DeviceTypeKey[];
   currentAddress?: NexusProviderAddress;
   aadharAddress?: NexusProviderAddress;
   adminNotes?: string;

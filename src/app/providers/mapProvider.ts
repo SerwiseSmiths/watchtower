@@ -53,7 +53,7 @@ export function mapProviderToRow(provider: NexusProviderDetail): ProviderRow {
     phoneNumber: provider.phoneNo,
     email: provider.email,
     isActive: provider.isActive,
-    skills: provider.skills,
+    skills: provider.skillGroups.flatMap((g) => g.deviceTypes),
     providerTierName: provider.providerTierName,
     providerTierColor: provider.providerTierColor,
     complaintSuccess: provider.stats.complaintSuccess,

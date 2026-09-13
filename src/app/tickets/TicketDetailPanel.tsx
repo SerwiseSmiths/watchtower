@@ -21,15 +21,16 @@ import ReassignPopover from './ReassignPopover';
 import QuoteResponseActions from './QuoteResponseActions';
 import TicketLifecycleActions from './TicketLifecycleActions';
 
-type StageKey = 'RAISED' | 'ASSIGNED' | 'ENTRANCE' | 'ESTIMATION' | 'APPROVAL' | 'PAYMENT' | 'IN_WARRANTY' | 'COMPLETED' | 'CANCELLED';
+type StageKey = 'RAISED' | 'ASSIGNED' | 'ENTRANCE' | 'ESTIMATION' | 'APPROVAL' | 'IN_PROGRESS' | 'PAYMENT' | 'IN_WARRANTY' | 'COMPLETED' | 'CANCELLED';
 
 const STAGE_RANK: Record<Ticket['stage'], number> = {
   ENTRANCE: 0,
   QR_VALIDATED: 1,
   ESTIMATION: 2,
   APPROVAL: 3,
-  PAYMENT: 4,
-  COMPLETED: 5,
+  IN_PROGRESS: 4,
+  PAYMENT: 5,
+  COMPLETED: 6,
   REJECTED: -1,
 };
 
@@ -41,6 +42,7 @@ const STAGE_DEFS: { key: StageKey; label: string; status: TicketStatus; icon: Re
   { key: 'ENTRANCE', label: 'Entrance', status: 'In Progress', icon: <InProgressIcon /> },
   { key: 'ESTIMATION', label: 'Estimation', status: 'In Progress', icon: <InProgressIcon /> },
   { key: 'APPROVAL', label: 'Approval', status: 'In Progress', icon: <InProgressIcon /> },
+  { key: 'IN_PROGRESS', label: 'Repairing', status: 'In Progress', icon: <InProgressIcon /> },
   { key: 'PAYMENT', label: 'Payment', status: 'In Progress', icon: <InProgressIcon /> },
   { key: 'IN_WARRANTY', label: 'In-Warranty', status: 'In-Warranty', icon: <InWarrantyIcon /> },
   { key: 'COMPLETED', label: 'Completed', status: 'Completed', icon: <CompletedIcon /> },
@@ -60,8 +62,10 @@ function isAchieved(key: StageKey, ticket: Ticket): boolean {
       return rank >= 2;
     case 'APPROVAL':
       return rank >= 3;
-    case 'PAYMENT':
+    case 'IN_PROGRESS':
       return rank >= 4;
+    case 'PAYMENT':
+      return rank >= 5;
     case 'COMPLETED':
       return ticket.stage === 'COMPLETED';
     case 'CANCELLED':
@@ -73,7 +77,7 @@ function isAchieved(key: StageKey, ticket: Ticket): boolean {
   }
 }
 
-const MAIN_SEQUENCE: StageKey[] = ['RAISED', 'ASSIGNED', 'ENTRANCE', 'ESTIMATION', 'APPROVAL', 'PAYMENT', 'COMPLETED'];
+const MAIN_SEQUENCE: StageKey[] = ['RAISED', 'ASSIGNED', 'ENTRANCE', 'ESTIMATION', 'APPROVAL', 'IN_PROGRESS', 'PAYMENT', 'COMPLETED'];
 
 function currentStageKey(ticket: Ticket): StageKey {
   if (ticket.stage === 'REJECTED') return 'CANCELLED';
@@ -360,7 +364,7 @@ export default function TicketDetailPanel({
             <div style={{ ...cellStyle, marginBottom: 6 }}>{content.id}</div>
             <div className="d-flex align-items-center" style={{ gap: 8 }}>
               <span style={{ fontSize: 20, fontWeight: 600, letterSpacing: '-0.03em', color: '#000000' }}>
-                {content.device ? formatDeviceType(content.device.type) : content.title}
+                {content.devices[0] ? formatDeviceType(content.devices[0].type) : content.title}
               </span>
               <span style={{ background: '#E5E5E5', color: '#181818', borderRadius: 5, padding: '4px 8px', fontSize: 11, fontWeight: 600 }}>
                 Service
@@ -535,17 +539,19 @@ export default function TicketDetailPanel({
               <div style={{ width: 30 }} />
             </div>
 
-            {content.device ? (
-              <div className="d-flex align-items-center" style={{ padding: '0 13px', height: 44 }}>
-                <div style={{ width: 26 }}>
-                  <input type="checkbox" />
+            {content.devices.length > 0 ? (
+              content.devices.map((device) => (
+                <div key={device.id} className="d-flex align-items-center" style={{ padding: '0 13px', height: 44, borderBottom: '1px solid #E5E5E5' }}>
+                  <div style={{ width: 26 }}>
+                    <input type="checkbox" />
+                  </div>
+                  <div style={{ width: 118, ...cellStyle }}>{device.deviceKey}</div>
+                  <div style={{ width: 118, ...cellStyle }}>{formatDeviceType(device.type)}</div>
+                  <div style={{ width: 30 }}>
+                    <ChevronRightIcon />
+                  </div>
                 </div>
-                <div style={{ width: 118, ...cellStyle }}>{content.device.deviceKey}</div>
-                <div style={{ width: 118, ...cellStyle }}>{formatDeviceType(content.device.type)}</div>
-                <div style={{ width: 30 }}>
-                  <ChevronRightIcon />
-                </div>
-              </div>
+              ))
             ) : (
               <div className="d-flex align-items-center justify-content-center" style={{ height: 60, ...labelStyle }}>
                 No appliance linked to this ticket.
@@ -555,7 +561,7 @@ export default function TicketDetailPanel({
 
           <div className="d-flex align-items-center justify-content-between mt-3">
             <span style={{ fontSize: 14, fontWeight: 600, letterSpacing: '-0.03em', color: '#000000' }}>
-              {content.device ? 1 : 0} Found!
+              {content.devices.length} Found!
             </span>
             {!addingAppliance && (
               <button

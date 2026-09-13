@@ -10,8 +10,14 @@ export interface TicketAddress {
 }
 
 export interface TicketDevice {
+  id: string;
   type: string;
   deviceKey: string;
+}
+
+export interface TicketRequestedDevice {
+  deviceKey: string;
+  quantity: number;
 }
 
 export interface TicketQuoteItem {
@@ -50,7 +56,8 @@ export interface Ticket {
   hasProvider: boolean;
   pinCode: string | null;
   address: TicketAddress | null;
-  device: TicketDevice | null;
+  requestedDevices: TicketRequestedDevice[];
+  devices: TicketDevice[];
   quote: TicketQuote | null;
   startDateRaw: string;
   updatedAtRaw: string;
@@ -141,7 +148,8 @@ export function mapComplaintToTicket(complaint: NexusComplaint): Ticket {
     hasProvider: complaint.provider !== null,
     pinCode: complaint.address?.pinCode ?? null,
     address: buildAddress(complaint.address),
-    device: complaint.device ? { type: complaint.device.type, deviceKey: complaint.device.deviceKey } : null,
+    requestedDevices: complaint.requestedDevices ?? [],
+    devices: complaint.devices.map((link) => ({ id: link.device.id, type: link.device.type, deviceKey: link.device.deviceKey })),
     quote: buildQuote(complaint.quote),
     startDateRaw: complaint.createdAt,
     updatedAtRaw: complaint.updatedAt,

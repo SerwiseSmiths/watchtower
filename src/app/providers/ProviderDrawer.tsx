@@ -77,7 +77,11 @@ function providerToForm(provider: NexusProviderDetail): FormState {
     lastName: provider.lastName ?? '',
     phoneNo: provider.phoneNo,
     email: provider.email ?? '',
-    skills: provider.skills,
+    // Flattened for the toggle UI — sent back as `deviceTypes`, which nexus
+    // re-resolves to skillGroups (picking one type from a group grants the
+    // whole group), so this round-trips correctly even though the read shape
+    // is group-based and the write shape is flat.
+    skills: provider.skillGroups.flatMap((g) => g.deviceTypes),
     currentAddress: provider.currentAddress ?? {},
     aadharAddress: provider.aadharAddress ?? {},
     adminNotes: provider.adminNotes ?? '',
@@ -182,7 +186,7 @@ export default function ProviderDrawer({
         lastName: form.lastName,
         phoneNo: form.phoneNo,
         email: form.email || undefined,
-        skills: form.skills,
+        deviceTypes: form.skills,
         currentAddress: form.currentAddress,
         aadharAddress: form.aadharAddress,
         adminNotes: form.adminNotes || undefined,

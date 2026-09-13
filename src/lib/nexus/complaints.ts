@@ -1,6 +1,6 @@
 import { nexusFetch } from './client';
 
-export type ComplaintStage = 'ENTRANCE' | 'QR_VALIDATED' | 'ESTIMATION' | 'APPROVAL' | 'PAYMENT' | 'COMPLETED' | 'REJECTED';
+export type ComplaintStage = 'ENTRANCE' | 'QR_VALIDATED' | 'ESTIMATION' | 'APPROVAL' | 'IN_PROGRESS' | 'PAYMENT' | 'COMPLETED' | 'REJECTED';
 
 export interface NexusPerson {
   id: string;
@@ -31,6 +31,21 @@ export interface NexusDevice {
   imageUrl: string | null;
 }
 
+export interface NexusComplaintDeviceLink {
+  device: NexusDevice;
+}
+
+export interface NexusRequestedDevice {
+  deviceKey: string;
+  quantity: number;
+}
+
+export interface NexusDeviceTypeGroup {
+  key: string;
+  name: string;
+  deviceTypes: string[];
+}
+
 export type QuoteStatus = 'PENDING' | 'APPROVED' | 'REJECTED';
 
 export interface NexusQuoteItem {
@@ -59,7 +74,11 @@ export interface NexusComplaint {
   user: NexusPerson;
   provider: NexusPerson | null;
   address: NexusAddress | null;
-  device: NexusDevice | null;
+  // What was originally asked for (type + quantity, no pre-existing Device row
+  // required) vs. the physical units actually identified so far on-site.
+  group: NexusDeviceTypeGroup | null;
+  requestedDevices: NexusRequestedDevice[] | null;
+  devices: NexusComplaintDeviceLink[];
   quote: NexusQuote | null;
 }
 
@@ -76,19 +95,21 @@ export interface CreateComplaintInput {
   title: string;
   notes?: string;
   addressId: string;
-  deviceId?: string;
-  deviceKey?: string;
+  requestedDevices: NexusRequestedDevice[];
 }
 
-/** Creates a complaint on a customer's behalf, as ADMIN. */
-export async function createComplaint(input: CreateComplaintInput): Promise<NexusComplaint> {
+/** Creates a complaint on a customer's behalf, as ADMIN. Requested devices spanning
+ *  multiple device-type groups are split by nexus into one complaint per group (e.g.
+ *  "2 AC + 1 Fridge + 2 RO" becomes one ticket for AC+Fridge and another for RO), so
+ *  this can return more than one complaint from a single call. */
+export async function createComplaint(input: CreateComplaintInput): Promise<NexusComplaint[]> {
   const res = await nexusFetch('/complaint', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(input),
   });
   const body = await res.json();
-  return body.data.complaint as NexusComplaint;
+  return (body.data.complaints ?? [body.data.complaint]) as NexusComplaint[];
 }
 
 /** Force-advances a complaint's stage as ADMIN — used for the entrance bypass action, which
@@ -114,13 +135,13 @@ export async function reopenComplaint(complaintId: string): Promise<NexusComplai
   return body.data.complaint as NexusComplaint;
 }
 
-/** Attaches a device to a complaint as ADMIN — same effect as a provider identifying the
- *  appliance on-site (auto-advances QR_VALIDATED → ESTIMATION). */
-export async function linkDeviceToComplaint(complaintId: string, deviceId: string, deviceKey: string): Promise<void> {
+/** Attaches an already-existing device to a complaint as ADMIN — same effect as a provider
+ *  identifying the appliance on-site (auto-advances QR_VALIDATED → ESTIMATION). */
+export async function linkDeviceToComplaint(complaintId: string, deviceId: string): Promise<void> {
   await nexusFetch(`/complaint/${complaintId}/device`, {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ deviceId, deviceKey }),
+    body: JSON.stringify({ devices: [{ deviceId }] }),
   });
 }
 

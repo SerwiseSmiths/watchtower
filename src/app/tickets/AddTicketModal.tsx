@@ -1,10 +1,11 @@
 'use client';
 
 import { useEffect, useState, type CSSProperties } from 'react';
-import { searchCustomers, fetchCustomerDetail, fetchCustomerDevices, createTicketAction } from './actions';
-import { DEVICE_KEYS, type DeviceKey, type NexusDeviceSummary } from '@/lib/nexus/devices';
+import { searchCustomers, fetchCustomerDetail, createTicketAction } from './actions';
+import { DEVICE_KEYS, type DeviceKey } from '@/lib/nexus/devices';
 import { DEVICE_TYPE_LABELS } from './deviceFormConfig';
 import type { NexusCustomerListItem, NexusCustomerDetail } from '@/lib/nexus/customers';
+import type { NexusRequestedDevice } from '@/lib/nexus/complaints';
 
 const inputStyle: CSSProperties = {
   width: '100%',
@@ -25,6 +26,12 @@ function customerName(customer: NexusCustomerListItem): string {
   return [customer.firstName, customer.lastName].filter(Boolean).join(' ') || customer.phoneNo;
 }
 
+// Quantity per device type, keyed the same way DEVICE_KEYS is ordered — 0 means
+// "not requested". Devices don't need to pre-exist: nexus creates the physical
+// Device rows later, once a provider identifies them on-site.
+type Quantities = Record<DeviceKey, number>;
+const EMPTY_QUANTITIES: Quantities = Object.fromEntries(DEVICE_KEYS.map((k) => [k, 0])) as Quantities;
+
 export default function AddTicketModal({ onClose, onCreated }: { onClose: () => void; onCreated: () => void }) {
   const [customerQuery, setCustomerQuery] = useState('');
   const [customerResults, setCustomerResults] = useState<NexusCustomerListItem[] | null>(null);
@@ -34,9 +41,7 @@ export default function AddTicketModal({ onClose, onCreated }: { onClose: () => 
   const [title, setTitle] = useState('');
   const [notes, setNotes] = useState('');
   const [addressId, setAddressId] = useState('');
-  const [deviceKey, setDeviceKey] = useState<DeviceKey | ''>('');
-  const [existingDevices, setExistingDevices] = useState<NexusDeviceSummary[] | null>(null);
-  const [deviceId, setDeviceId] = useState('');
+  const [quantities, setQuantities] = useState<Quantities>(EMPTY_QUANTITIES);
 
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -63,17 +68,15 @@ export default function AddTicketModal({ onClose, onCreated }: { onClose: () => 
     setAddressId('');
   }
 
-  useEffect(() => {
-    setDeviceId('');
-    if (!deviceKey || !selectedCustomer) {
-      setExistingDevices(null);
-      return;
-    }
-    setExistingDevices(null);
-    fetchCustomerDevices(selectedCustomer.id, deviceKey).then(setExistingDevices);
-  }, [deviceKey, selectedCustomer]);
+  function setQuantity(key: DeviceKey, qty: number) {
+    setQuantities((prev) => ({ ...prev, [key]: Math.max(0, qty) }));
+  }
 
   const activeAddresses = customerDetail?.addresses.filter((a) => !a.isDeleted) ?? [];
+  const requestedDevices: NexusRequestedDevice[] = DEVICE_KEYS.filter((key) => quantities[key] > 0).map((key) => ({
+    deviceKey: key,
+    quantity: quantities[key],
+  }));
 
   async function handleSave() {
     if (!selectedCustomer) {
@@ -88,6 +91,10 @@ export default function AddTicketModal({ onClose, onCreated }: { onClose: () => 
       setError('Select an address');
       return;
     }
+    if (requestedDevices.length === 0) {
+      setError('Select at least one appliance and quantity');
+      return;
+    }
 
     setSaving(true);
     setError(null);
@@ -97,8 +104,7 @@ export default function AddTicketModal({ onClose, onCreated }: { onClose: () => 
         title,
         notes: notes || undefined,
         addressId,
-        deviceKey: deviceKey || undefined,
-        deviceId: deviceId || undefined,
+        requestedDevices,
       });
       onCreated();
     } catch (err) {
@@ -185,31 +191,48 @@ export default function AddTicketModal({ onClose, onCreated }: { onClose: () => 
           </div>
 
           <div>
-            <div style={fieldLabelStyle}>Appliance Type (Optional)</div>
-            <select value={deviceKey} onChange={(e) => setDeviceKey(e.target.value as DeviceKey | '')} style={inputStyle}>
-              <option value="">None</option>
-              {DEVICE_KEYS.map((key) => (
-                <option key={key} value={key}>{DEVICE_TYPE_LABELS[key]}</option>
-              ))}
-            </select>
-          </div>
-
-          {deviceKey && selectedCustomer && (
-            <div>
-              <div style={fieldLabelStyle}>Existing Appliance (Optional)</div>
-              <select value={deviceId} onChange={(e) => setDeviceId(e.target.value)} style={inputStyle}>
-                <option value="">{existingDevices === null ? 'Loading…' : 'None'}</option>
-                {existingDevices?.map((device) => {
-                  const company = typeof device.metadata.company === 'string' ? device.metadata.company : DEVICE_TYPE_LABELS[deviceKey];
-                  return (
-                    <option key={device.id} value={device.id}>
-                      {company} — {device.address?.title ?? device.address?.societyName ?? 'No address'}
-                    </option>
-                  );
-                })}
-              </select>
+            <div className="d-flex justify-content-between align-items-center mb-2">
+              <span style={fieldLabelStyle}>Appliances &amp; Quantity</span>
+              <span style={fieldLabelStyle}>{requestedDevices.length} Selected</span>
             </div>
-          )}
+            <div style={{ fontSize: 10, fontWeight: 500, letterSpacing: '-0.03em', color: '#B7B7B7', marginBottom: 8 }}>
+              Devices requested in different device-type groups are created as separate tickets.
+            </div>
+            <div className="d-flex flex-column" style={{ gap: 6 }}>
+              {DEVICE_KEYS.map((key) => {
+                const qty = quantities[key];
+                return (
+                  <div
+                    key={key}
+                    className="d-flex justify-content-between align-items-center"
+                    style={{ background: '#EFEFEF', border: '1px solid #E5E5E5', borderRadius: 6, padding: '9px 11px' }}
+                  >
+                    <span style={{ fontSize: 14, fontWeight: 600, letterSpacing: '-0.03em', color: '#000' }}>
+                      {DEVICE_TYPE_LABELS[key]}
+                    </span>
+                    <div className="d-flex align-items-center" style={{ gap: 10 }}>
+                      <button
+                        type="button"
+                        onClick={() => setQuantity(key, qty - 1)}
+                        disabled={qty === 0}
+                        style={{ width: 26, height: 26, borderRadius: 6, border: '1px solid #B7B7B7', background: '#FFF', fontSize: 14, fontWeight: 700, opacity: qty === 0 ? 0.4 : 1 }}
+                      >
+                        −
+                      </button>
+                      <span style={{ width: 16, textAlign: 'center', fontSize: 13, fontWeight: 700, color: '#181818' }}>{qty}</span>
+                      <button
+                        type="button"
+                        onClick={() => setQuantity(key, qty + 1)}
+                        style={{ width: 26, height: 26, borderRadius: 6, border: '1px solid #B7B7B7', background: '#FFF', fontSize: 14, fontWeight: 700 }}
+                      >
+                        +
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
         </div>
 
         {error && (

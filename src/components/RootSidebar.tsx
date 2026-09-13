@@ -26,6 +26,7 @@ const DATA_ITEMS: NavItem[] = [
   { href: '/tickets', label: 'Tickets' },
   { href: '/providers', label: 'Providers' },
   { href: '/provider-tiers', label: 'Provider Tiers' },
+  { href: '/device-type-groups', label: 'Device Type Groups' },
   { href: '/customers', label: 'Customers' },
   { href: '/audit-log', label: 'Audit Log' },
 ];

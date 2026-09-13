@@ -113,7 +113,26 @@ export default function AddApplianceForm({ ticket, onCancel, onDone }: { ticket:
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
-  const availableTypes = resolveRequestedDeviceKeys(ticket.title).filter((key) => key !== ticket.device?.deviceKey);
+  // Requested devices are a structured field on the complaint now (type + quantity);
+  // only fall back to guessing from the free-text title for older tickets created
+  // before that field existed. A type stays available to add until as many units
+  // have been physically identified (linked) as were requested.
+  const requestedKeys: DeviceKey[] =
+    ticket.requestedDevices.length > 0
+      ? (ticket.requestedDevices.map((d) => d.deviceKey) as DeviceKey[])
+      : resolveRequestedDeviceKeys(ticket.title);
+
+  const requestedQuantity: Partial<Record<DeviceKey, number>> = {};
+  for (const rd of ticket.requestedDevices) {
+    requestedQuantity[rd.deviceKey as DeviceKey] = (requestedQuantity[rd.deviceKey as DeviceKey] ?? 0) + rd.quantity;
+  }
+
+  const linkedCount: Partial<Record<DeviceKey, number>> = {};
+  for (const d of ticket.devices) {
+    linkedCount[d.deviceKey as DeviceKey] = (linkedCount[d.deviceKey as DeviceKey] ?? 0) + 1;
+  }
+
+  const availableTypes = requestedKeys.filter((key) => (linkedCount[key] ?? 0) < (requestedQuantity[key] ?? 1));
 
   useEffect(() => {
     if (step !== 'existing' || !deviceKey) return;

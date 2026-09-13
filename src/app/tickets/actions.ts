@@ -32,7 +32,7 @@ export async function addAppliance(input: AddApplianceInput) {
     addressId: input.addressId ?? undefined,
     metadata: input.metadata,
   });
-  await linkDeviceToComplaint(input.complaintId, device.id, device.deviceKey);
+  await linkDeviceToComplaint(input.complaintId, device.id);
   revalidatePath('/tickets');
   updateTag('complaints');
   await logAudit({ module: 'ticket', action: 'UPDATE', entityId: input.complaintId, changes: { device: { old: null, new: device.deviceKey } } });
@@ -43,7 +43,7 @@ export async function fetchCustomerDevices(customerId: string, deviceKey: Device
 }
 
 export async function linkExistingAppliance(complaintId: string, deviceId: string, deviceKey: string) {
-  await linkDeviceToComplaint(complaintId, deviceId, deviceKey);
+  await linkDeviceToComplaint(complaintId, deviceId);
   revalidatePath('/tickets');
   updateTag('complaints');
   await logAudit({ module: 'ticket', action: 'UPDATE', entityId: complaintId, changes: { device: { old: null, new: deviceKey } } });
@@ -80,12 +80,14 @@ export async function fetchCustomerDetail(customerId: string): Promise<NexusCust
   return fetchCustomer(customerId);
 }
 
-export async function createTicketAction(input: CreateComplaintInput): Promise<NexusComplaint> {
-  const complaint = await createComplaint(input);
+export async function createTicketAction(input: CreateComplaintInput): Promise<NexusComplaint[]> {
+  const complaints = await createComplaint(input);
   revalidatePath('/tickets');
   updateTag('complaints');
-  await logAudit({ module: 'ticket', action: 'CREATE', entityId: complaint.id, entityLabel: complaint.title, after: { ...complaint } });
-  return complaint;
+  for (const complaint of complaints) {
+    await logAudit({ module: 'ticket', action: 'CREATE', entityId: complaint.id, entityLabel: complaint.title, after: { ...complaint } });
+  }
+  return complaints;
 }
 
 export async function cancelTicketAction(complaintId: string, reason?: string) {
