@@ -1,10 +1,11 @@
 'use server';
 
 import { revalidatePath, updateTag } from 'next/cache';
-import { setComplaintStage, linkDeviceToComplaint, assignProvider, respondToQuote, createComplaint, reopenComplaint, type CreateComplaintInput, type NexusComplaint } from '@/lib/nexus/complaints';
+import { setComplaintStage, linkDeviceToComplaint, assignProvider, respondToQuote, addQuote, createComplaint, reopenComplaint, type CreateComplaintInput, type NexusComplaint, type AddQuoteItemInput } from '@/lib/nexus/complaints';
 import { addDeviceForCustomer, listDevicesForCustomer, type DeviceKey, type NexusDeviceSummary } from '@/lib/nexus/devices';
 import { listProviders, type NexusProvider } from '@/lib/nexus/providers';
 import { fetchAllCustomers, fetchCustomer, type NexusCustomerListItem, type NexusCustomerDetail } from '@/lib/nexus/customers';
+import { listParts, getPart, type NexusServicePart } from '@/lib/nexus/parts';
 import { logAudit } from '@/lib/audit/log';
 
 export async function bypassEntrance(complaintId: string) {
@@ -70,6 +71,31 @@ export async function respondToQuoteAction(complaintId: string, approved: boolea
     entityId: complaintId,
     changes: { quoteStatus: { old: 'PENDING', new: approved ? 'APPROVED' : 'REJECTED' }, ...(rejectionReason && { rejectionReason: { old: null, new: rejectionReason } }) },
   });
+}
+
+export async function fetchServiceParts(deviceType?: string): Promise<NexusServicePart[]> {
+  return listParts(deviceType);
+}
+
+export async function fetchServicePart(documentId: string): Promise<NexusServicePart | null> {
+  return getPart(documentId);
+}
+
+export async function addQuoteAction(complaintId: string, items: AddQuoteItemInput[], notes?: string): Promise<NexusComplaint> {
+  const complaint = await addQuote(complaintId, items, notes);
+  revalidatePath('/tickets');
+  updateTag('complaints');
+  // Read the total nexus actually persisted, not what these items summed to
+  // client-side — catalogue items get re-priced from the CMS server-side, so
+  // the submitted total and the real one can differ.
+  const totalAmount = complaint.quote?.totalAmount ?? items.reduce((sum, item) => sum + item.unitPrice * item.quantity, 0);
+  await logAudit({
+    module: 'ticket',
+    action: 'UPDATE',
+    entityId: complaintId,
+    changes: { quote: { old: null, new: totalAmount } },
+  });
+  return complaint;
 }
 
 export async function searchCustomers(search?: string): Promise<NexusCustomerListItem[]> {

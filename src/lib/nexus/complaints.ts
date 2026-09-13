@@ -63,6 +63,22 @@ export interface NexusQuote {
   status: QuoteStatus;
 }
 
+// One dated entry in the complaint's audit trail (see nexus's
+// ComplaintService.logComplaintEvent) — e.g. CREATED, STAGE_CHANGED,
+// PROVIDER_ASSIGNED, PROVIDER_ACCEPTED, PROVIDER_REJECTED, QUOTE_ADDED,
+// QUOTE_APPROVED, QUOTE_REJECTED, REOPENED. fromStage/toStage are only set
+// for stage-transition events.
+export interface NexusComplaintLog {
+  id: string;
+  event: string;
+  fromStage: ComplaintStage | null;
+  toStage: ComplaintStage | null;
+  actorId: string | null;
+  actorRole: 'CUSTOMER' | 'PROVIDER' | 'ADMIN' | null;
+  metadata: Record<string, unknown> | null;
+  createdAt: string;
+}
+
 export interface NexusComplaint {
   id: string;
   title: string;
@@ -80,6 +96,7 @@ export interface NexusComplaint {
   requestedDevices: NexusRequestedDevice[] | null;
   devices: NexusComplaintDeviceLink[];
   quote: NexusQuote | null;
+  logs: NexusComplaintLog[];
 }
 
 // Complaints change constantly from outside Watchtower too (radix providers advancing
@@ -162,4 +179,32 @@ export async function respondToQuote(complaintId: string, approved: boolean, rej
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ approved, ...(rejectionReason && { rejectionReason }) }),
   });
+}
+
+export interface AddQuoteItemInput {
+  name: string;
+  unitPrice: number;
+  quantity: number;
+  // Strapi service-part documentId — when set, nexus re-resolves name/price
+  // from the CMS at creation time (ignoring whatever this client sends) so
+  // the quote snapshots the authoritative catalogue price, not a possibly
+  // stale client-side read of it — unless priceOverridden is also set.
+  partId?: string;
+  // Backup for when the real cost ran higher than the catalogue's listed
+  // price — only meaningful alongside partId; trusts this item's unitPrice
+  // verbatim instead of letting nexus re-resolve it from the CMS.
+  priceOverridden?: boolean;
+}
+
+/** Submits a quote as ADMIN on the assigned provider's behalf (e.g. a phoned-in estimate) —
+ *  moves the complaint to APPROVAL for the customer to review, same as a provider submitting
+ *  one from radix. The complaint must already have a provider assigned. */
+export async function addQuote(complaintId: string, items: AddQuoteItemInput[], notes?: string): Promise<NexusComplaint> {
+  const res = await nexusFetch(`/complaint/${complaintId}/quote`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ items, ...(notes && { notes }) }),
+  });
+  const body = await res.json();
+  return body.data.complaint as NexusComplaint;
 }

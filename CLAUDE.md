@@ -1,1 +1,10 @@
 @AGENTS.md
+
+## Ticket / Quote Business Rules
+
+Nexus's `docs/complaint.md` is the source of truth for complaint/quote business rules (state machine, provider assignment, quote flow, audit log) — read it before changing anything in `app/tickets/`. Ticket-relevant highlights, current as of 2026-09-13 (see that doc's §5.1/§6 for full detail):
+
+- **Quotes can be created here too, not just from radix.** `app/tickets/AddQuoteForm.tsx` submits as ADMIN on the assigned provider's behalf — nexus requires a provider already be assigned first (400 otherwise), and only allows it while the complaint is `QR_VALIDATED`/`ESTIMATION`.
+- **Catalogue item prices are never trusted from this client.** Picking a part from `app/tickets/AddQuoteForm.tsx`'s catalogue picker (`lib/nexus/parts.ts`) shows nexus's cached price as a preview only — nexus independently re-resolves the real, current CMS price at the moment of actual submission and snapshots that into the quote permanently. The confirmation popup before submit re-checks prices one more time (`getPart`/`fetchServicePart`, an un-cached-on-our-end read) so the admin isn't confirming a stale number, but it still cannot be the final source of truth — that's nexus's job. Don't "simplify" this form to submit the picker's price directly; the whole point is that the server decides it.
+- **`priceOverridden` is the one legitimate way for a catalogue item's client-sent price to actually be used.** It exists for "the real cost ran higher than the listed price" — surfaced as the "Actual cost is higher? Enter a custom price" toggle, off by default. Don't default it on, and don't apply it to custom (non-catalogue) items — they're always client-priced regardless.
+- **The ticket detail's "Ticket Activity" tab timeline** (`TicketDetailPanel.tsx`) reads real per-event timestamps from the complaint's `logs` array (nexus's `ComplaintLog`, included on every complaint fetch) — don't reintroduce the old approximation of showing every stage's date as just the complaint's single `updatedAt`. If you add a new UI surface that needs "when did X happen," check `logs` first before inventing another timestamp source.

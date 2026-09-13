@@ -2,7 +2,7 @@
 
 import { useEffect, useState, type CSSProperties } from 'react';
 import type { Ticket, TicketStatus, TicketQuoteItem } from './mapComplaint';
-import { formatDeviceType, formatDate } from './mapComplaint';
+import { formatDeviceType, formatDate, formatDateTime, stageReachedAt, providerAssignedAt } from './mapComplaint';
 import {
   ChevronUpIcon,
   ChevronDownIcon,
@@ -17,6 +17,7 @@ import {
 } from './icons';
 import { STATUS_COLORS } from './statusColors';
 import AddApplianceForm from './AddApplianceForm';
+import AddQuoteForm from './AddQuoteForm';
 import ReassignPopover from './ReassignPopover';
 import QuoteResponseActions from './QuoteResponseActions';
 import TicketLifecycleActions from './TicketLifecycleActions';
@@ -78,6 +79,21 @@ function isAchieved(key: StageKey, ticket: Ticket): boolean {
 }
 
 const MAIN_SEQUENCE: StageKey[] = ['RAISED', 'ASSIGNED', 'ENTRANCE', 'ESTIMATION', 'APPROVAL', 'IN_PROGRESS', 'PAYMENT', 'COMPLETED'];
+
+// Maps the UI's stage-timeline keys to the actual ComplaintStage a log entry
+// records — "Entrance" in this timeline means QR validated (rank >= 1), not
+// literally Complaint.stage === 'ENTRANCE'. RAISED/ASSIGNED/IN_WARRANTY have
+// no ComplaintStage transition of their own (see providerAssignedAt for
+// ASSIGNED's separate lookup).
+const STAGE_KEY_TO_COMPLAINT_STAGE: Partial<Record<StageKey, Ticket['stage']>> = {
+  ENTRANCE:    'QR_VALIDATED',
+  ESTIMATION:  'ESTIMATION',
+  APPROVAL:    'APPROVAL',
+  IN_PROGRESS: 'IN_PROGRESS',
+  PAYMENT:     'PAYMENT',
+  COMPLETED:   'COMPLETED',
+  CANCELLED:   'REJECTED',
+};
 
 function currentStageKey(ticket: Ticket): StageKey {
   if (ticket.stage === 'REJECTED') return 'CANCELLED';
@@ -260,12 +276,14 @@ export default function TicketDetailPanel({
   const [content, setContent] = useState<Ticket | null>(ticket);
   const [visible, setVisible] = useState(false);
   const [addingAppliance, setAddingAppliance] = useState(false);
+  const [creatingQuote, setCreatingQuote] = useState(false);
   const [tab, setTab] = useState<QuoteTab>('activity');
 
   useEffect(() => {
     if (ticket) {
       setContent(ticket);
       setAddingAppliance(false);
+      setCreatingQuote(false);
       setTab('activity');
     }
   }, [ticket]);
@@ -283,6 +301,10 @@ export default function TicketDetailPanel({
   const labelStyle: CSSProperties = { fontSize: 10, fontWeight: 600, letterSpacing: '-0.03em', color: '#B7B7B7' };
   const cellStyle: CSSProperties = { fontSize: 12, fontWeight: 600, letterSpacing: '-0.03em', color: '#000000' };
   const progress = achievedCount(content);
+  // Mirrors nexus's addQuote eligibility check (QR_VALIDATED/ESTIMATION,
+  // provider assigned) — an admin can only enter a quote once a provider has
+  // actually been out to inspect the appliance.
+  const canCreateQuote = !content.quote && content.hasProvider && (content.stage === 'QR_VALIDATED' || content.stage === 'ESTIMATION');
 
   return (
     <div
@@ -438,7 +460,26 @@ export default function TicketDetailPanel({
                   const achieved = isAchieved(stage.key, content);
                   const { bg, color } = STATUS_COLORS[stage.status];
                   const isCurrent = stage.key === currentStageKey(content);
-                  const dateLabel = stage.key === 'RAISED' ? content.startDate : isCurrent ? formatDate(content.updatedAtRaw) : null;
+                  // Real timestamp from the complaint's audit log when this stage
+                  // was actually reached — falls back to the current stage's
+                  // last-updated time only for complaints logged before this
+                  // timeline existed (no matching log entry yet).
+                  const loggedAt =
+                    stage.key === 'RAISED'
+                      ? content.startDateRaw
+                      : stage.key === 'ASSIGNED'
+                        ? providerAssignedAt(content.logs)
+                        : STAGE_KEY_TO_COMPLAINT_STAGE[stage.key]
+                          ? stageReachedAt(content.logs, STAGE_KEY_TO_COMPLAINT_STAGE[stage.key]!)
+                          : null;
+                  const dateLabel =
+                    stage.key === 'RAISED'
+                      ? content.startDate
+                      : loggedAt
+                        ? formatDateTime(loggedAt)
+                        : isCurrent
+                          ? formatDate(content.updatedAtRaw)
+                          : null;
                   return (
                     <div key={stage.key}>
                       <div className="d-flex align-items-start justify-content-between" style={{ opacity: achieved ? 1 : 0.4 }}>
@@ -471,6 +512,30 @@ export default function TicketDetailPanel({
               <QuoteItemsList items={content.quote.items} />
             )}
           </div>
+
+          {creatingQuote && (
+            <div style={{ paddingTop: 15, flexShrink: 0 }}>
+              <AddQuoteForm
+                complaintId={content.complaintId}
+                deviceType={content.devices[0]?.type}
+                onCancel={() => setCreatingQuote(false)}
+                onDone={() => setCreatingQuote(false)}
+              />
+            </div>
+          )}
+
+          {!creatingQuote && canCreateQuote && (
+            <div style={{ paddingTop: 15, flexShrink: 0 }}>
+              <button
+                type="button"
+                onClick={() => setCreatingQuote(true)}
+                className="w-100"
+                style={{ background: '#181818', color: '#FFFFFF', border: 'none', borderRadius: 6, padding: '10px', fontSize: 12, fontWeight: 600, letterSpacing: '-0.03em' }}
+              >
+                + Create Quote
+              </button>
+            </div>
+          )}
 
           {content.quote && content.quote.status === 'PENDING' && (
             <div style={{ paddingTop: 15, flexShrink: 0 }}>
