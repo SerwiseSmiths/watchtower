@@ -2,9 +2,11 @@
 
 import { useEffect, useState, type CSSProperties } from 'react';
 import { searchCustomers, fetchCustomerDetail, createTicketAction } from './actions';
+import { createAddressAction } from '../customers/[id]/actions';
+import AddressMapModal from '../customers/[id]/AddressMapModal';
 import { DEVICE_KEYS, type DeviceKey } from '@/lib/nexus/devices';
 import { DEVICE_TYPE_LABELS } from './deviceFormConfig';
-import type { NexusCustomerListItem, NexusCustomerDetail } from '@/lib/nexus/customers';
+import type { NexusCustomerListItem, NexusCustomerDetail, CustomerAddressInput } from '@/lib/nexus/customers';
 import type { NexusRequestedDevice } from '@/lib/nexus/complaints';
 
 const inputStyle: CSSProperties = {
@@ -46,6 +48,9 @@ export default function AddTicketModal({ onClose, onCreated }: { onClose: () => 
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const [showAddAddress, setShowAddAddress] = useState(false);
+  const [addingAddress, setAddingAddress] = useState(false);
+
   useEffect(() => {
     if (selectedCustomer) return;
     const id = setTimeout(() => {
@@ -70,6 +75,21 @@ export default function AddTicketModal({ onClose, onCreated }: { onClose: () => 
 
   function setQuantity(key: DeviceKey, qty: number) {
     setQuantities((prev) => ({ ...prev, [key]: Math.max(0, qty) }));
+  }
+
+  async function handleSaveNewAddress(input: CustomerAddressInput) {
+    if (!selectedCustomer) return;
+    setAddingAddress(true);
+    try {
+      const address = await createAddressAction(selectedCustomer.id, input);
+      setCustomerDetail((prev) => (prev ? { ...prev, addresses: [...prev.addresses, address] } : prev));
+      setAddressId(address.id);
+      setShowAddAddress(false);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to add address');
+    } finally {
+      setAddingAddress(false);
+    }
   }
 
   const activeAddresses = customerDetail?.addresses.filter((a) => !a.isDeleted) ?? [];
@@ -168,7 +188,16 @@ export default function AddTicketModal({ onClose, onCreated }: { onClose: () => 
 
           {selectedCustomer && (
             <div>
-              <div style={fieldLabelStyle}>Address</div>
+              <div className="d-flex justify-content-between align-items-center" style={{ marginBottom: 4 }}>
+                <div style={{ ...fieldLabelStyle, marginBottom: 0 }}>Address</div>
+                <button
+                  type="button"
+                  onClick={() => setShowAddAddress(true)}
+                  style={{ background: 'none', border: 'none', fontSize: 12, fontWeight: 600, color: '#181818' }}
+                >
+                  + Add New Address
+                </button>
+              </div>
               <select value={addressId} onChange={(e) => setAddressId(e.target.value)} style={inputStyle}>
                 <option value="">{customerDetail ? 'Select address…' : 'Loading…'}</option>
                 {activeAddresses.map((address) => (
@@ -261,6 +290,15 @@ export default function AddTicketModal({ onClose, onCreated }: { onClose: () => 
           {saving ? 'Saving…' : 'Save & Continue'}
         </button>
       </div>
+
+      {showAddAddress && (
+        <AddressMapModal
+          initial={{}}
+          onSave={handleSaveNewAddress}
+          onCancel={() => setShowAddAddress(false)}
+          saving={addingAddress}
+        />
+      )}
     </div>
   );
 }

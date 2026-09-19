@@ -43,7 +43,7 @@ const STAGE_DEFS: { key: StageKey; label: string; status: TicketStatus; icon: Re
   { key: 'ENTRANCE', label: 'Entrance', status: 'In Progress', icon: <InProgressIcon /> },
   { key: 'ESTIMATION', label: 'Estimation', status: 'In Progress', icon: <InProgressIcon /> },
   { key: 'APPROVAL', label: 'Approval', status: 'In Progress', icon: <InProgressIcon /> },
-  { key: 'IN_PROGRESS', label: 'Repairing', status: 'In Progress', icon: <InProgressIcon /> },
+  { key: 'IN_PROGRESS', label: 'Working', status: 'In Progress', icon: <InProgressIcon /> },
   { key: 'PAYMENT', label: 'Payment', status: 'In Progress', icon: <InProgressIcon /> },
   { key: 'IN_WARRANTY', label: 'In-Warranty', status: 'In-Warranty', icon: <InWarrantyIcon /> },
   { key: 'COMPLETED', label: 'Completed', status: 'Completed', icon: <CompletedIcon /> },
@@ -514,14 +514,14 @@ export default function TicketDetailPanel({
           </div>
 
           {creatingQuote && (
-            <div style={{ paddingTop: 15, flexShrink: 0 }}>
-              <AddQuoteForm
-                complaintId={content.complaintId}
-                deviceType={content.devices[0]?.type}
-                onCancel={() => setCreatingQuote(false)}
-                onDone={() => setCreatingQuote(false)}
-              />
-            </div>
+            // A full-screen popup (position: fixed) — not laid out inline, so
+            // it doesn't need a flexShrink wrapper like the buttons around it.
+            <AddQuoteForm
+              complaintId={content.complaintId}
+              deviceType={content.devices[0]?.type}
+              onCancel={() => setCreatingQuote(false)}
+              onDone={() => setCreatingQuote(false)}
+            />
           )}
 
           {!creatingQuote && canCreateQuote && (
