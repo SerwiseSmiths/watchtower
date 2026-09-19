@@ -51,6 +51,7 @@ const inputStyle: CSSProperties = {
   fontSize: 13,
   width: '100%',
   outline: 'none',
+  color: '#181818',
 };
 
 const labelStyle: CSSProperties = { fontSize: 10, fontWeight: 600, letterSpacing: '-0.03em', color: '#B7B7B7', marginBottom: 4, display: 'block' };
@@ -65,6 +66,7 @@ const stepperBtnStyle: CSSProperties = {
   fontSize: 13,
   fontWeight: 700,
   lineHeight: 1,
+  color: '#181818',
 };
 
 function formatCurrency(amount: number): string {
@@ -451,7 +453,7 @@ export default function AddQuoteForm({
                         >
                           −
                         </button>
-                        <span style={{ width: 16, textAlign: 'center', fontSize: 12, fontWeight: 700 }}>{item.quantity}</span>
+                        <span style={{ width: 16, textAlign: 'center', fontSize: 12, fontWeight: 700, color: '#181818' }}>{item.quantity}</span>
                         <button type="button" onClick={() => updateItem(i, { quantity: item.quantity + 1 })} style={stepperBtnStyle}>
                           +
                         </button>
@@ -622,7 +624,7 @@ function PartRow({
           <button type="button" onClick={onDecrement} style={stepperBtnStyle}>
             −
           </button>
-          <span style={{ width: 16, textAlign: 'center', fontSize: 12, fontWeight: 700 }}>{quantity}</span>
+          <span style={{ width: 16, textAlign: 'center', fontSize: 12, fontWeight: 700, color: '#181818' }}>{quantity}</span>
           <button type="button" onClick={onIncrement} style={stepperBtnStyle}>
             +
           </button>
