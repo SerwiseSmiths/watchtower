@@ -194,6 +194,11 @@ export interface AddQuoteItemInput {
   // price — only meaningful alongside partId; trusts this item's unitPrice
   // verbatim instead of letting nexus re-resolve it from the CMS.
   priceOverridden?: boolean;
+  // What the provider earns per unit — required for a custom item (no
+  // partId), since there's no CMS-defined split to fall back on. Ignored
+  // for a catalogue item, whose labour nexus always resolves itself from
+  // the assigned provider's tier pricing.
+  labour?: number;
 }
 
 /** Submits a quote as ADMIN on the assigned provider's behalf (e.g. a phoned-in estimate) —

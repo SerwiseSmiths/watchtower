@@ -23,6 +23,11 @@ type LineItem = {
   category?: string;
   type?: NexusServicePart['type'];
   description?: string | null;
+  // What the provider earns per unit — the rest of unitPrice is the
+  // company's (parts cost + margin). Only meaningful for a custom item (no
+  // partId); a catalogue item's labour is always resolved server-side from
+  // the assigned provider's tier pricing, never taken from this client.
+  labour?: number;
 };
 
 type Step = 'browse' | 'cart' | 'confirm';
@@ -85,6 +90,9 @@ type ConfirmRow = {
   shownUnitPrice: number;
   currentUnitPrice: number;
   changed: boolean;
+  // Only set for a custom item — a catalogue item's labour is resolved by
+  // nexus itself and isn't previewable client-side.
+  labour?: number;
 };
 
 export default function AddQuoteForm({
@@ -193,7 +201,7 @@ export default function AddQuoteForm({
   }
 
   function addCustomItem() {
-    setItems((prev) => [...prev, { name: '', unitPrice: 0, quantity: 1 }]);
+    setItems((prev) => [...prev, { name: '', unitPrice: 0, quantity: 1, labour: 0 }]);
   }
 
   function updateItem(index: number, patch: Partial<LineItem>) {
@@ -214,6 +222,10 @@ export default function AddQuoteForm({
       quantity: item.quantity || 1,
       ...(item.partId && { partId: item.partId }),
       ...(item.priceOverridden && { priceOverridden: true }),
+      // Only meaningful (and only required by nexus) for a custom item —
+      // ignored for a catalogue item, whose labour nexus always resolves
+      // itself from the provider's tier pricing.
+      ...(!item.partId && { labour: item.labour ?? 0 }),
     }));
   }
 
@@ -230,13 +242,35 @@ export default function AddQuoteForm({
       setError('Every item needs a name and a valid unit price.');
       return;
     }
+    const customItemMissingLabour = items.find(
+      (item) => !item.partId && (item.labour == null || item.labour < 0),
+    );
+    if (customItemMissingLabour) {
+      setError(`Enter what the provider earns (labour) for "${customItemMissingLabour.name || 'the custom item'}".`);
+      return;
+    }
+    const laborTooHigh = items.find((item) => !item.partId && (item.labour ?? 0) > item.unitPrice);
+    if (laborTooHigh) {
+      setError(`Labour can't exceed the price for "${laborTooHigh.name || 'the custom item'}".`);
+      return;
+    }
 
     setError(null);
     setConfirmLoading(true);
     try {
       const rows = await Promise.all(
         items.map(async (item): Promise<ConfirmRow> => {
-          if (!item.partId || item.priceOverridden) {
+          if (!item.partId) {
+            return {
+              name: item.name,
+              quantity: item.quantity,
+              shownUnitPrice: item.unitPrice,
+              currentUnitPrice: item.unitPrice,
+              changed: false,
+              labour: item.labour ?? 0,
+            };
+          }
+          if (item.priceOverridden) {
             return { name: item.name, quantity: item.quantity, shownUnitPrice: item.unitPrice, currentUnitPrice: item.unitPrice, changed: false };
           }
           const part = await fetchServicePart(item.partId);
@@ -480,6 +514,24 @@ export default function AddQuoteForm({
                         </button>
                       </div>
                     )}
+
+                    {/* Custom items have no CMS-defined split, so the provider's
+                        labour (what they earn) must be entered separately from
+                        the price the customer is charged. */}
+                    {!item.partId && (
+                      <div className="d-flex justify-content-between align-items-center" style={{ marginTop: 8 }}>
+                        <span style={{ fontSize: 10, fontWeight: 600, color: '#B7B7B7' }}>Provider&apos;s Labour (of {formatCurrency(item.unitPrice)})</span>
+                        <input
+                          style={{ ...inputStyle, width: 100, textAlign: 'right' }}
+                          type="number"
+                          min={0}
+                          max={item.unitPrice}
+                          step="0.01"
+                          value={item.labour ?? 0}
+                          onChange={(e) => updateItem(i, { labour: Number(e.target.value) || 0 })}
+                        />
+                      </div>
+                    )}
                   </div>
                 ))}
                 {items.length === 0 && <div style={labelStyle}>No items added yet.</div>}
@@ -532,7 +584,10 @@ export default function AddQuoteForm({
                   <div key={i} className="d-flex justify-content-between align-items-start">
                     <div>
                       <div style={{ fontSize: 12, fontWeight: 600, color: '#181818' }}>{row.name}</div>
-                      <div style={{ fontSize: 10, color: '#B7B7B7' }}>Qty {row.quantity}</div>
+                      <div style={{ fontSize: 10, color: '#B7B7B7' }}>
+                        Qty {row.quantity}
+                        {row.labour != null && ` · Labour ${formatCurrency(row.labour)}`}
+                      </div>
                     </div>
                     <div style={{ textAlign: 'right' }}>
                       {row.changed ? (
