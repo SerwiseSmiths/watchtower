@@ -241,7 +241,8 @@ function ConnectWhatsAppModal({
     <div style={{ position: 'fixed', inset: 0, zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
       <div onClick={onClose} style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.45)' }} />
 
-      <div style={{ position: 'relative', width: 'min(420px, 92vw)', background: '#FFFFFF', borderRadius: 10, padding: 24 }}>
+      {/* Explicit text color — body defaults to white text (globals.css). */}
+      <div style={{ position: 'relative', width: 'min(420px, 92vw)', background: '#FFFFFF', color: '#181818', borderRadius: 10, padding: 24 }}>
         {step.kind === 'phone' && (
           <>
             <div style={titleStyle}>Connect WhatsApp</div>
@@ -267,7 +268,7 @@ function ConnectWhatsAppModal({
             <div style={titleStyle}>Enter this code on the phone</div>
             {step.code ? (
               <div
-                style={{ fontSize: 30, fontWeight: 700, letterSpacing: '0.12em', fontFamily: 'monospace', textAlign: 'center', background: '#F2F2F2', borderRadius: 8, padding: '14px 0', margin: '14px 0' }}
+                style={{ fontSize: 30, fontWeight: 700, letterSpacing: '0.12em', fontFamily: 'monospace', textAlign: 'center', color: '#000000', background: '#F2F2F2', borderRadius: 8, padding: '14px 0', margin: '14px 0' }}
               >
                 {step.code.length === 8 ? `${step.code.slice(0, 4)}-${step.code.slice(4)}` : step.code}
               </div>

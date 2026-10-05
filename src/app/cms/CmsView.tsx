@@ -924,7 +924,7 @@ export default function CmsView({
   };
 
   return (
-    <div className={dmSans.className} style={{ minHeight: '100vh', background: '#F2F2F2', display: 'flex' }}>
+    <div className={dmSans.className} style={{ minHeight: '100vh', minWidth: 'fit-content', background: '#F2F2F2', display: 'flex' }}>
       <RootSidebar />
       <main className="flex-grow-1" style={{ padding: '44px 40px' }}>
         <h1 className="mb-4" style={{ fontSize: 28, fontWeight: 700, letterSpacing: '-0.03em', color: '#181818' }}>{heading[tab]}</h1>
