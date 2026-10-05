@@ -529,6 +529,17 @@ export async function findEntity(contentTypeUid: string, id: number, options: { 
   return hydrateAttributes(schema.uid, schema.collectionName, row, schema.attributes);
 }
 
+/** Re-reads a row by its numeric id regardless of draft/published state — for the write path's
+ * own before/after snapshots. `findEntity`'s published-only default would return null for a
+ * draftAndPublish type's freshly created (draft) row, leaving callers with no entity and the
+ * audit log with no field details. */
+async function findEntityById(contentTypeUid: string, id: number) {
+  const schema = getContentType(contentTypeUid);
+  const row = await model(schema.collectionName).findUnique({ where: { id } });
+  if (!row) return null;
+  return hydrateAttributes(schema.uid, schema.collectionName, row, schema.attributes);
+}
+
 /**
  * Strapi v5's REST API addresses single entities by `documentId` in the URL,
  * not the internal numeric id — this is what nexus/serwise actually call.
@@ -749,7 +760,7 @@ export async function createEntity(contentTypeUid: string, data: Row) {
     },
   });
   await writeNestedFields(schema.uid, schema.collectionName, row.id as number, schema.attributes, data);
-  const created = await findEntity(contentTypeUid, row.id as number);
+  const created = await findEntityById(contentTypeUid, row.id as number);
   await logAudit({
     module: schema.singularName,
     action: 'CREATE',
@@ -764,11 +775,11 @@ export async function createEntity(contentTypeUid: string, data: Row) {
 
 export async function updateEntity(contentTypeUid: string, id: number, data: Row) {
   const schema = getContentType(contentTypeUid);
-  const before = await findEntity(contentTypeUid, id);
+  const before = await findEntityById(contentTypeUid, id);
   const scalarData = buildScalarData(schema.attributes, data);
   await model(schema.collectionName).update({ where: { id }, data: { ...scalarData, updated_at: new Date() } });
   await writeNestedFields(schema.uid, schema.collectionName, id, schema.attributes, data);
-  const after = await findEntity(contentTypeUid, id);
+  const after = await findEntityById(contentTypeUid, id);
   await logAudit({
     module: schema.singularName,
     action: 'UPDATE',
@@ -831,7 +842,7 @@ export async function duplicateEntity(contentTypeUid: string, documentId: string
 
 export async function deleteEntity(contentTypeUid: string, id: number) {
   const schema = getContentType(contentTypeUid);
-  const before = await findEntity(contentTypeUid, id);
+  const before = await findEntityById(contentTypeUid, id);
   for (const [name, field] of Object.entries(schema.attributes)) {
     if (field.kind === 'media') {
       await model('files_related_mph').deleteMany({ where: { related_id: id, related_type: schema.uid, field: name } });
@@ -895,7 +906,7 @@ export async function publishEntity(contentTypeUid: string, draftId: number) {
   await writeNestedFields(schema.uid, schema.collectionName, publishedId, schema.attributes, draft);
   revalidateTag(contentTag(contentTypeUid), { expire: CONTENT_CACHE_SECONDS });
   notifyNexusCacheInvalidation(contentTypeUid);
-  return findEntity(contentTypeUid, publishedId);
+  return findEntityById(contentTypeUid, publishedId);
 }
 
 /** Removes the published sibling of `draftId`'s document, leaving the draft untouched. */

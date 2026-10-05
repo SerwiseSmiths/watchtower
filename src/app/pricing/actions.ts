@@ -3,7 +3,7 @@
 import { revalidatePath } from 'next/cache';
 import { prisma } from '@/lib/db/prisma';
 import { uploadToCloudinary } from '@/lib/media/cloudinary';
-import { createEntity, updateEntity, deleteEntity } from '@/lib/db/entity-repository';
+import { createEntity, updateEntity, deleteEntity, publishEntity } from '@/lib/db/entity-repository';
 import {
   listPricingForTier,
   upsertPartPricing,
@@ -67,8 +67,17 @@ export interface ServicePartInput {
   device_types?: number[];
 }
 
+/** Plans, addons and parts are all draftAndPublish, but this page has no draft/publish step and
+ *  lists (and nexus/serwise serve) only published rows — so a create here must publish right away,
+ *  otherwise the new entry exists only as an invisible draft. */
+async function createPublished(uid: string, data: Record<string, unknown>) {
+  const draft = await createEntity(uid, data);
+  if (!draft) throw new Error('Failed to create entry');
+  return publishEntity(uid, draft.id as number);
+}
+
 export async function createSubscriptionPlanAction(input: SubscriptionPlanInput) {
-  const entity = await createEntity(PLAN_UID, { ...input });
+  const entity = await createPublished(PLAN_UID, { ...input });
   revalidatePath('/pricing');
   return entity;
 }
@@ -85,7 +94,7 @@ export async function deleteSubscriptionPlanAction(id: number) {
 }
 
 export async function createSubscriptionAddonAction(input: SubscriptionAddonInput) {
-  const entity = await createEntity(ADDON_UID, { ...input });
+  const entity = await createPublished(ADDON_UID, { ...input });
   revalidatePath('/pricing');
   return entity;
 }
@@ -102,7 +111,7 @@ export async function deleteSubscriptionAddonAction(id: number) {
 }
 
 export async function createServicePartAction(input: ServicePartInput) {
-  const entity = await createEntity(PART_UID, { ...input });
+  const entity = await createPublished(PART_UID, { ...input });
   revalidatePath('/pricing');
   return entity;
 }
