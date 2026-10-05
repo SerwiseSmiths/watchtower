@@ -122,6 +122,8 @@ export function describeLogEvent(log: TicketLogEntry): string {
       return 'Job alert shown to provider';
     case 'ASSIGNMENT_EXPIRED_REASSIGNING':
       return 'Provider did not respond — reassigning';
+    case 'WHATSAPP_NUDGE_SENT':
+      return 'Customer nudged on WhatsApp';
     default:
       return log.event;
   }

@@ -1,18 +1,83 @@
 'use server';
 
 import { revalidatePath, updateTag } from 'next/cache';
-import { setComplaintStage, linkDeviceToComplaint, assignProvider, respondToQuote, addQuote, createComplaint, reopenComplaint, type CreateComplaintInput, type NexusComplaint, type AddQuoteItemInput } from '@/lib/nexus/complaints';
+import { unstable_rethrow } from 'next/navigation';
+import { setComplaintStage, linkDeviceToComplaint, assignProvider, respondToQuote, addQuote, createComplaint, reopenComplaint, nudgeComplaintOnWhatsApp, type CreateComplaintInput, type NexusComplaint, type AddQuoteItemInput } from '@/lib/nexus/complaints';
 import { addDeviceForCustomer, listDevicesForCustomer, type DeviceKey, type NexusDeviceSummary } from '@/lib/nexus/devices';
 import { listProviders, type NexusProvider } from '@/lib/nexus/providers';
 import { fetchAllCustomers, fetchCustomer, type NexusCustomerListItem, type NexusCustomerDetail } from '@/lib/nexus/customers';
 import { listParts, getPart, type NexusServicePart } from '@/lib/nexus/parts';
 import { logAudit } from '@/lib/audit/log';
+import { fetchWhatsAppStatus, startWhatsAppPairing, logoutWhatsApp, type WhatsAppStatus } from '@/lib/nexus/whatsapp';
 
 export async function bypassEntrance(complaintId: string) {
   await setComplaintStage(complaintId, 'QR_VALIDATED');
   revalidatePath('/tickets');
   updateTag('complaints');
   await logAudit({ module: 'ticket', action: 'UPDATE', entityId: complaintId, changes: { stage: { old: 'ENTRANCE', new: 'QR_VALIDATED' } } });
+}
+
+// WhatsApp actions return results instead of throwing — production Next.js
+// hides thrown server-action messages, and the UI needs nexus's actual reason
+// (not connected, number not on WhatsApp, busy, …).
+export type ActionResult<T = null> = { ok: true; data: T } | { ok: false; error: string };
+
+// Lets nexusFetch's redirect-to-login (expired session) through instead of
+// reporting it as an ordinary error.
+const errorMessage = (err: unknown) => {
+  unstable_rethrow(err);
+  return err instanceof Error ? err.message : 'Something went wrong';
+};
+
+/** Nudges the customer on WhatsApp to track an open ticket in the app. Nexus owns
+ *  the message, the closed-ticket check, and the actual WhatsApp send. */
+export async function nudgeCustomerOnWhatsApp(complaintId: string): Promise<ActionResult & { notConnected?: boolean }> {
+  try {
+    await nudgeComplaintOnWhatsApp(complaintId);
+  } catch (err) {
+    const error = errorMessage(err);
+    // Also covers the number being unlinked from the phone since the page loaded.
+    const status = await fetchWhatsAppStatus().catch(() => null);
+    return { ok: false, error, notConnected: status ? !status.connected : false };
+  }
+  revalidatePath('/tickets');
+  updateTag('complaints');
+  await logAudit({
+    module: 'ticket',
+    action: 'UPDATE',
+    entityId: complaintId,
+    changes: { whatsappNudge: { old: null, new: new Date().toISOString() } },
+  });
+  return { ok: true, data: null };
+}
+
+export async function getWhatsAppStatusAction(): Promise<ActionResult<WhatsAppStatus>> {
+  try {
+    return { ok: true, data: await fetchWhatsAppStatus() };
+  } catch (err) {
+    return { ok: false, error: errorMessage(err) };
+  }
+}
+
+export async function startWhatsAppPairingAction(phone: string): Promise<ActionResult<{ code: string }>> {
+  try {
+    const code = await startWhatsAppPairing(phone);
+    await logAudit({ module: 'whatsapp', action: 'UPDATE', entityId: 'sender', changes: { linkStarted: { old: null, new: phone } } });
+    return { ok: true, data: { code } };
+  } catch (err) {
+    return { ok: false, error: errorMessage(err) };
+  }
+}
+
+export async function logoutWhatsAppAction(): Promise<ActionResult> {
+  try {
+    const before = await fetchWhatsAppStatus().catch(() => null);
+    await logoutWhatsApp();
+    await logAudit({ module: 'whatsapp', action: 'UPDATE', entityId: 'sender', changes: { number: { old: before?.number ?? null, new: null } } });
+    return { ok: true, data: null };
+  } catch (err) {
+    return { ok: false, error: errorMessage(err) };
+  }
 }
 
 export interface AddApplianceInput {

@@ -10,6 +10,8 @@ import { FilterIcon, ChevronRightIcon, RaisedIcon, InWarrantyIcon, InProgressIco
 import { STATUS_COLORS } from './statusColors';
 import TicketDetailPanel from './TicketDetailPanel';
 import AddTicketModal from './AddTicketModal';
+import NudgeWhatsAppButton from './NudgeWhatsAppButton';
+import { WhatsAppHeaderControl } from './WhatsAppConnection';
 
 const ALL_STATUSES: TicketStatus[] = ['Raised', 'In-Warranty', 'In Progress', 'Cancelled', 'Completed'];
 
@@ -203,9 +205,12 @@ export default function TicketsView({ tickets }: { tickets: Ticket[] }) {
       <RootSidebar />
 
       <main className="flex-grow-1" style={{ padding: '44px 40px' }}>
-        <h1 className="mb-3" style={{ fontSize: 28, fontWeight: 700, letterSpacing: '-0.03em', color: '#181818' }}>
-          Tickets
-        </h1>
+        <div className="d-flex justify-content-between align-items-start mb-3">
+          <h1 className="mb-0" style={{ fontSize: 28, fontWeight: 700, letterSpacing: '-0.03em', color: '#181818' }}>
+            Tickets
+          </h1>
+          <WhatsAppHeaderControl />
+        </div>
 
         <nav className="d-flex mb-4" style={{ gap: 15 }}>
           <span style={{ ...labelStyle, padding: '10px' }}>Dashboard</span>
@@ -273,6 +278,7 @@ export default function TicketsView({ tickets }: { tickets: Ticket[] }) {
             <div style={{ width: 112, ...labelStyle }}>Start Date</div>
             <div style={{ width: 118, ...labelStyle }}>End Date</div>
             <div style={{ width: 118, ...labelStyle }}>By Pass</div>
+            <div style={{ width: 100, ...labelStyle }}>WhatsApp</div>
             <div style={{ width: 24 }} />
           </div>
 
@@ -309,6 +315,9 @@ export default function TicketsView({ tickets }: { tickets: Ticket[] }) {
               <div style={{ width: 118, ...cellStyle }}>{ticket.endDate ?? '—'}</div>
               <div style={{ width: 118 }} onClick={(e) => e.stopPropagation()}>
                 <BypassButton ticket={ticket} />
+              </div>
+              <div style={{ width: 100 }} onClick={(e) => e.stopPropagation()}>
+                <NudgeWhatsAppButton ticket={ticket} compact />
               </div>
               <div style={{ width: 24 }} className="d-flex justify-content-center">
                 <ChevronRightIcon />
