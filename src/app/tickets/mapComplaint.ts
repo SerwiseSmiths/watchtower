@@ -214,7 +214,8 @@ export function mapComplaintToTicket(complaint: NexusComplaint): Ticket {
     stage: complaint.stage,
     providerAccepted: complaint.providerAccepted,
     subscriptionId: complaint.subscriptionId,
-    id: `#${complaint.id.slice(0, 10).toUpperCase()}`,
+    // Must match radix's ComplaintsScreen mapToUI so admin and provider quote the same ID.
+    id: `#${complaint.id.slice(-5)}`,
     name: personName(complaint.user),
     initials: personInitials(complaint.user),
     avatar: complaint.user.avatar,
