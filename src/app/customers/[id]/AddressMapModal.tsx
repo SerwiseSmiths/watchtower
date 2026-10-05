@@ -139,11 +139,15 @@ export default function AddressMapModal({
         style={{ width: 768, background: '#FFFFFF', border: '2px solid #E5E5E5', borderRadius: 10, padding: 20, gap: 19 }}
       >
         <div style={{ width: 375, height: 502, borderRadius: 5, position: 'relative', flexShrink: 0 }}>
-          <AddressMap lat={lat} lng={lng} onChange={handleMapChange} />
+          {/* Leaflet panes/controls use z-index 400–1000; isolate them so the
+              search overlay below can sit on top once tiles load. */}
+          <div style={{ position: 'absolute', inset: 0, zIndex: 0, isolation: 'isolate' }}>
+            <AddressMap lat={lat} lng={lng} onChange={handleMapChange} />
+          </div>
 
           <div
             ref={boxRef}
-            style={{ position: 'absolute', top: 15, left: 15, right: 15, zIndex: 10 }}
+            style={{ position: 'absolute', top: 15, left: 15, right: 15, zIndex: 1 }}
           >
             <div className="d-flex align-items-center" style={{ background: '#FFFFFF', borderRadius: 5, padding: '12px 15px', gap: 9 }}>
               <span style={{ width: 13, height: 13, border: '2px solid #000', borderRadius: '50%', flexShrink: 0 }} />
