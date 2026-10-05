@@ -21,6 +21,7 @@ import AddQuoteForm from './AddQuoteForm';
 import ReassignPopover from './ReassignPopover';
 import QuoteResponseActions from './QuoteResponseActions';
 import TicketLifecycleActions from './TicketLifecycleActions';
+import NudgeWhatsAppButton from './NudgeWhatsAppButton';
 
 type StageKey = 'RAISED' | 'ASSIGNED' | 'ENTRANCE' | 'ESTIMATION' | 'APPROVAL' | 'IN_PROGRESS' | 'PAYMENT' | 'IN_WARRANTY' | 'COMPLETED' | 'CANCELLED';
 
@@ -399,6 +400,9 @@ export default function TicketDetailPanel({
             complaintId={content.complaintId}
             isClosed={content.stage === 'COMPLETED' || content.stage === 'REJECTED'}
           />
+
+          {/* key resets the Sent/Failed state when stepping to another ticket */}
+          <NudgeWhatsAppButton key={content.complaintId} ticket={content} />
 
           <div style={{ borderBottom: '2px solid #E5E5E5', paddingBottom: 15 }}>
             <div style={{ ...labelStyle, marginBottom: 6 }}>Current Stage &amp; Activity</div>

@@ -152,6 +152,13 @@ export async function reopenComplaint(complaintId: string): Promise<NexusComplai
   return body.data.complaint as NexusComplaint;
 }
 
+/** Sends the customer the "track your ticket in the app" WhatsApp message — nexus builds the
+ *  text, looks up the phone, rejects closed complaints, and sends from the WhatsApp number
+ *  linked to that nexus environment (see nexus `yarn whatsapp:pair`). */
+export async function nudgeComplaintOnWhatsApp(complaintId: string): Promise<void> {
+  await nexusFetch(`/complaint/${complaintId}/whatsapp-nudge`, { method: 'POST' });
+}
+
 /** Attaches an already-existing device to a complaint as ADMIN — same effect as a provider
  *  identifying the appliance on-site (auto-advances QR_VALIDATED → ESTIMATION). */
 export async function linkDeviceToComplaint(complaintId: string, deviceId: string): Promise<void> {

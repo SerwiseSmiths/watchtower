@@ -121,7 +121,7 @@ export default function DeviceTypeGroupsView({ groups }: { groups: NexusDeviceTy
   const showForm = creating || editingKey !== null;
 
   return (
-    <div className={dmSans.className} style={{ minHeight: '100vh', background: '#F2F2F2', display: 'flex' }}>
+    <div className={dmSans.className} style={{ minHeight: '100vh', minWidth: 'fit-content', background: '#F2F2F2', display: 'flex' }}>
       <RootSidebar />
 
       <main className="flex-grow-1" style={{ padding: '44px 40px' }}>

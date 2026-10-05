@@ -16,7 +16,8 @@
 body {
   background-color: var(--bg-dark);
   color: white;
-  overflow-x: hidden;
+  /* No overflow-x: hidden — admin tables are wider than small screens and must
+     scroll horizontally instead of being clipped. */
   min-height: 100vh;
 }
 
