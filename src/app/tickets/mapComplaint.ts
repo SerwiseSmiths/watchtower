@@ -13,6 +13,8 @@ export interface TicketDevice {
   id: string;
   type: string;
   deviceKey: string;
+  imageUrl: string | null;
+  metadata: Record<string, unknown>;
 }
 
 export interface TicketRequestedDevice {
@@ -234,7 +236,18 @@ export function mapComplaintToTicket(complaint: NexusComplaint): Ticket {
     pinCode: complaint.address?.pinCode ?? null,
     address: buildAddress(complaint.address),
     requestedDevices: complaint.requestedDevices ?? [],
-    devices: complaint.devices.map((link) => ({ id: link.device.id, type: link.device.type, deviceKey: link.device.deviceKey })),
+    devices: complaint.devices.map((link) => ({
+      id: link.device.id,
+      type: link.device.type,
+      deviceKey: link.device.deviceKey,
+      imageUrl: link.device.imageUrl,
+      // Prisma Json column — only a plain object is a valid spec sheet; anything else would
+      // render as per-character/per-index "fields" in DeviceDetails.
+      metadata:
+        link.device.metadata && typeof link.device.metadata === 'object' && !Array.isArray(link.device.metadata)
+          ? link.device.metadata
+          : {},
+    })),
     quote: buildQuote(complaint.quote),
     logs: complaint.logs.map((log) => ({
       id: log.id,

@@ -19,6 +19,7 @@
     "@simplewebauthn/server": "^13.2.2",
     "@strapi/design-system": "^2.0.0",
     "@strapi/icons": "^2.0.0",
+    "@supabase/supabase-js": "^2.117.2",
     "bcryptjs": "^3.0.3",
     "bootstrap": "^5.3.8",
     "cloudinary": "^2.10.0",

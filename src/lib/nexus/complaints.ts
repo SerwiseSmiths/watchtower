@@ -29,6 +29,8 @@ export interface NexusDevice {
   type: string;
   deviceKey: string;
   imageUrl: string | null;
+  /** Per-type spec fields (company, capacity, …) — shape per deviceKey in tickets/deviceFormConfig.ts. */
+  metadata: Record<string, unknown> | null;
 }
 
 export interface NexusComplaintDeviceLink {
