@@ -131,7 +131,7 @@ export function reactionFor(event: string, payload: Payload): RealtimeReaction {
       return {
         tags: complaintTags(complaint),
         toast: {
-          title: `Quote added on ${ticketRef(complaint)}`,
+          title: `Quote ${payload.revised ? 'edited' : 'added'} on ${ticketRef(complaint)}`,
           body: complaint.quote?.totalAmount != null ? `₹${complaint.quote.totalAmount.toLocaleString('en-IN')}` : undefined,
           tone: 'info',
           href,

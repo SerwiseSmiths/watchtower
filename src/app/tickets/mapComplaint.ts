@@ -27,12 +27,18 @@ export interface TicketQuoteItem {
   quantity: number;
   unitPrice: number;
   amount: number;
+  /** Set = catalogue item (CMS service-part documentId); unset = custom item. */
+  partId: string | null;
+  priceOverridden: boolean;
+  /** Provider's earning per unit; null on quotes created before per-item labour existed. */
+  labour: number | null;
 }
 
 export interface TicketQuote {
   status: QuoteStatus;
   totalAmount: number;
   items: TicketQuoteItem[];
+  notes: string | null;
 }
 
 export interface TicketLogEntry {
@@ -114,6 +120,8 @@ export function describeLogEvent(log: TicketLogEntry): string {
       return 'Provider rejected the job';
     case 'QUOTE_ADDED':
       return 'Quote submitted';
+    case 'QUOTE_UPDATED':
+      return 'Quote edited by admin';
     case 'QUOTE_APPROVED':
       return 'Quote approved by customer';
     case 'QUOTE_REJECTED':
@@ -189,11 +197,15 @@ function buildQuote(quote: NexusQuote | null): TicketQuote | null {
   return {
     status: quote.status,
     totalAmount: quote.totalAmount,
+    notes: quote.notes,
     items: quote.items.map((item) => ({
       name: item.name,
       quantity: item.quantity,
       unitPrice: item.unitPrice,
       amount: item.unitPrice * item.quantity,
+      partId: item.partId ?? null,
+      priceOverridden: item.priceOverridden ?? false,
+      labour: typeof item.labour === 'number' ? item.labour : null,
     })),
   };
 }

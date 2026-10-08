@@ -55,6 +55,9 @@ export interface NexusQuoteItem {
   name: string;
   unitPrice: number;
   quantity: number;
+  priceOverridden?: boolean;
+  /** Per-unit provider earning — absent on quotes created before 2026-09-27. */
+  labour?: number;
 }
 
 export interface NexusQuote {

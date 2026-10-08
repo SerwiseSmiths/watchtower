@@ -1,43 +1,41 @@
 'use client';
 
-import { useEffect, useRef, useState, useTransition, type CSSProperties } from 'react';
+import { useState, useTransition, type CSSProperties } from 'react';
 import { respondToQuoteAction } from './actions';
+import AddQuoteForm from './AddQuoteForm';
+import QuoteReviewModal from './QuoteReviewModal';
+import type { TicketQuote } from './mapComplaint';
 
-export default function QuoteResponseActions({ complaintId }: { complaintId: string }) {
+// Approve / Reject never act directly — both open the review popup first so the admin sees
+// the full quote before deciding, and can edit it from there (nexus complaint.md §6.7).
+type Mode = { kind: 'closed' } | { kind: 'review'; initial: 'approve' | 'reject' } | { kind: 'edit' };
+
+export default function QuoteResponseActions({
+  complaintId,
+  quote,
+  deviceType,
+}: {
+  complaintId: string;
+  quote: TicketQuote;
+  deviceType?: string;
+}) {
+  const [mode, setMode] = useState<Mode>({ kind: 'closed' });
   const [isPending, startTransition] = useTransition();
-  const [rejecting, setRejecting] = useState(false);
-  const [reason, setReason] = useState('');
   const [error, setError] = useState<string | null>(null);
-  const ref = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    function handleClickOutside(event: MouseEvent) {
-      if (ref.current && !ref.current.contains(event.target as Node)) setRejecting(false);
-    }
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
-
-  function approve() {
+  function open(initial: 'approve' | 'reject') {
     setError(null);
-    startTransition(async () => {
-      try {
-        await respondToQuoteAction(complaintId, true);
-      } catch {
-        setError('Failed to approve — please try again.');
-      }
-    });
+    setMode({ kind: 'review', initial });
   }
 
-  function reject() {
+  function respond(approved: boolean, reason?: string) {
     setError(null);
     startTransition(async () => {
       try {
-        await respondToQuoteAction(complaintId, false, reason || undefined);
-        setRejecting(false);
-        setReason('');
+        await respondToQuoteAction(complaintId, approved, reason || undefined);
+        setMode({ kind: 'closed' });
       } catch {
-        setError('Failed to reject — please try again.');
+        setError(`Failed to ${approved ? 'approve' : 'reject'} — the quote may have changed. Close and try again.`);
       }
     });
   }
@@ -53,60 +51,39 @@ export default function QuoteResponseActions({ complaintId }: { complaintId: str
   };
 
   return (
-    <div ref={ref} className="d-flex flex-column" style={{ gap: 8, position: 'relative' }}>
+    <>
       <div className="d-flex" style={{ gap: 10 }}>
-        <button
-          type="button"
-          disabled={isPending}
-          onClick={approve}
-          style={{ ...btnStyle, background: '#2ABA65', color: '#FFFFFF' }}
-        >
+        <button type="button" onClick={() => open('approve')} style={{ ...btnStyle, background: '#2ABA65', color: '#FFFFFF' }}>
           Approve Quote
         </button>
-        <button
-          type="button"
-          disabled={isPending}
-          onClick={() => setRejecting((v) => !v)}
-          style={{ ...btnStyle, background: '#FF5E5E', color: '#FFFFFF' }}
-        >
+        <button type="button" onClick={() => open('reject')} style={{ ...btnStyle, background: '#FF5E5E', color: '#FFFFFF' }}>
           Reject Quote
         </button>
       </div>
 
-      {rejecting && (
-        <div
-          style={{
-            position: 'absolute',
-            bottom: 'calc(100% + 6px)',
-            left: 0,
-            right: 0,
-            background: '#FFFFFF',
-            border: '1px solid #E5E5E5',
-            borderRadius: 8,
-            boxShadow: '0 8px 24px rgba(0,0,0,0.12)',
-            padding: 12,
-            zIndex: 30,
-          }}
-        >
-          <textarea
-            placeholder="Rejection reason (optional)"
-            value={reason}
-            onChange={(e) => setReason(e.target.value)}
-            rows={3}
-            style={{ width: '100%', background: '#EFEFEF', border: '1px solid #E5E5E5', borderRadius: 6, padding: '8px 10px', fontSize: 11, resize: 'none', marginBottom: 8 }}
-          />
-          <button
-            type="button"
-            disabled={isPending}
-            onClick={reject}
-            style={{ width: '100%', background: '#181818', color: '#FFF', border: 'none', borderRadius: 5, padding: '8px', fontSize: 11, fontWeight: 600 }}
-          >
-            {isPending ? 'Rejecting…' : 'Confirm Rejection'}
-          </button>
-        </div>
+      {mode.kind === 'review' && (
+        <QuoteReviewModal
+          quote={quote}
+          initialMode={mode.initial}
+          isPending={isPending}
+          error={error}
+          onApprove={() => respond(true)}
+          onReject={(reason) => respond(false, reason)}
+          onEdit={() => setMode({ kind: 'edit' })}
+          onClose={() => setMode({ kind: 'closed' })}
+        />
       )}
 
-      {error && <div style={{ fontSize: 10, color: '#FF5E5E', fontWeight: 600 }}>{error}</div>}
-    </div>
+      {mode.kind === 'edit' && (
+        <AddQuoteForm
+          complaintId={complaintId}
+          deviceType={deviceType}
+          initialQuote={quote}
+          onCancel={() => setMode({ kind: 'review', initial: 'approve' })}
+          // Back to the review, which now shows the saved quote (the action refreshes the page).
+          onDone={() => setMode({ kind: 'review', initial: 'approve' })}
+        />
+      )}
+    </>
   );
 }

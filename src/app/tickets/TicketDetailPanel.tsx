@@ -554,7 +554,7 @@ export default function TicketDetailPanel({
 
           {content.quote && content.quote.status === 'PENDING' && (
             <div style={{ paddingTop: 15, flexShrink: 0 }}>
-              <QuoteResponseActions complaintId={content.complaintId} />
+              <QuoteResponseActions complaintId={content.complaintId} quote={content.quote} deviceType={content.devices[0]?.type} />
             </div>
           )}
 

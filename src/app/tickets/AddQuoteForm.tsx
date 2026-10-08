@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState, useTransition, type CSSProperties } from 
 import { addQuoteAction, fetchServiceParts, fetchServicePart } from './actions';
 import type { AddQuoteItemInput } from '@/lib/nexus/complaints';
 import type { NexusServicePart } from '@/lib/nexus/parts';
+import type { TicketQuote } from './mapComplaint';
 
 // A line item picked from the CMS catalogue carries its part's documentId as
 // `partId` — nexus re-resolves name/price from the CMS at submit time using
@@ -95,9 +96,24 @@ type ConfirmRow = {
   labour?: number;
 };
 
+// Existing quote → editable cart lines. A catalogue item's stored unitPrice is the snapshot
+// from when the quote was made; the confirm step re-checks it against today's CMS price and
+// nexus re-resolves it again on save (unless priceOverridden), same as a new quote.
+function lineItemsFromQuote(quote: TicketQuote): LineItem[] {
+  return quote.items.map((item) => ({
+    ...(item.partId && { partId: item.partId }),
+    name: item.name,
+    unitPrice: item.unitPrice,
+    quantity: item.quantity,
+    ...(item.priceOverridden && { priceOverridden: true }),
+    ...(!item.partId && { labour: item.labour ?? 0 }),
+  }));
+}
+
 export default function AddQuoteForm({
   complaintId,
   deviceType,
+  initialQuote,
   onCancel,
   onDone,
 }: {
@@ -105,12 +121,15 @@ export default function AddQuoteForm({
   // Scopes the catalogue picker to parts applicable to this ticket's
   // appliance — omit to show the full catalogue.
   deviceType?: string;
+  /** Set = edit this pending quote (nexus §6.7) instead of creating one; opens on the cart. */
+  initialQuote?: TicketQuote;
   onCancel: () => void;
   onDone: () => void;
 }) {
-  const [step, setStep] = useState<Step>('browse');
-  const [items, setItems] = useState<LineItem[]>([]);
-  const [notes, setNotes] = useState('');
+  const isEdit = !!initialQuote;
+  const [step, setStep] = useState<Step>(isEdit ? 'cart' : 'browse');
+  const [items, setItems] = useState<LineItem[]>(() => (initialQuote ? lineItemsFromQuote(initialQuote) : []));
+  const [notes, setNotes] = useState(initialQuote?.notes ?? '');
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
@@ -192,8 +211,10 @@ export default function AddQuoteForm({
       prev.map((item, i) => {
         if (i !== index) return item;
         if (item.priceOverridden) {
-          // Reverting — go back to the catalogue price shown when it was added.
-          return { ...item, priceOverridden: false, unitPrice: item.catalogPrice ?? item.unitPrice };
+          // Reverting — go back to the catalogue price shown when it was added. Lines loaded
+          // from an existing quote never had one, so fall back to the loaded catalogue.
+          const catalogPrice = item.catalogPrice ?? parts?.find((p) => p.documentId === item.partId)?.face_value;
+          return { ...item, priceOverridden: false, unitPrice: catalogPrice ?? item.unitPrice };
         }
         return { ...item, priceOverridden: true };
       }),
@@ -301,7 +322,7 @@ export default function AddQuoteForm({
     const payload = buildPayload();
     startTransition(async () => {
       try {
-        await addQuoteAction(complaintId, payload, notes.trim() || undefined);
+        await addQuoteAction(complaintId, payload, notes.trim() || undefined, initialQuote?.totalAmount);
         onDone();
       } catch (err) {
         // Stay on the confirm step on failure so a retry doesn't need
@@ -319,7 +340,7 @@ export default function AddQuoteForm({
         style={{ width: 480, maxWidth: '92vw', height: '82vh', background: '#FFFFFF', borderRadius: 10, overflow: 'hidden' }}
       >
         <div className="d-flex justify-content-between align-items-center" style={{ padding: '16px 20px', borderBottom: '1px solid #F0F0F0', flexShrink: 0 }}>
-          <span style={{ fontSize: 18, fontWeight: 700, letterSpacing: '-0.03em', color: '#181818' }}>Create Quote</span>
+          <span style={{ fontSize: 18, fontWeight: 700, letterSpacing: '-0.03em', color: '#181818' }}>{isEdit ? 'Edit Quote' : 'Create Quote'}</span>
           <button type="button" onClick={onCancel} style={{ background: 'none', border: 'none', fontSize: 18, color: '#B7B7B7', lineHeight: 1 }}>
             ×
           </button>
@@ -635,7 +656,7 @@ export default function AddQuoteForm({
                   className="flex-grow-1"
                   style={{ background: '#181818', color: '#FFFFFF', border: 'none', borderRadius: 6, padding: '11px', fontSize: 13, fontWeight: 600 }}
                 >
-                  {isPending ? 'Submitting…' : 'Confirm & Submit'}
+                  {isPending ? (isEdit ? 'Saving…' : 'Submitting…') : isEdit ? 'Save Changes' : 'Confirm & Submit'}
                 </button>
               </div>
             </div>

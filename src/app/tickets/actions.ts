@@ -146,7 +146,13 @@ export async function fetchServicePart(documentId: string): Promise<NexusService
   return getPart(documentId);
 }
 
-export async function addQuoteAction(complaintId: string, items: AddQuoteItemInput[], notes?: string): Promise<NexusComplaint> {
+/** `previousTotal` = editing a pending quote (nexus §6.7) — recorded as the audit entry's old value. */
+export async function addQuoteAction(
+  complaintId: string,
+  items: AddQuoteItemInput[],
+  notes?: string,
+  previousTotal?: number,
+): Promise<NexusComplaint> {
   const complaint = await addQuote(complaintId, items, notes);
   revalidatePath('/tickets');
   updateTag('complaints');
@@ -158,7 +164,7 @@ export async function addQuoteAction(complaintId: string, items: AddQuoteItemInp
     module: 'ticket',
     action: 'UPDATE',
     entityId: complaintId,
-    changes: { quote: { old: null, new: totalAmount } },
+    changes: { quote: { old: previousTotal ?? null, new: totalAmount } },
   });
   return complaint;
 }
