@@ -13,6 +13,8 @@ export interface TicketDevice {
   id: string;
   type: string;
   deviceKey: string;
+  imageUrl: string | null;
+  metadata: Record<string, unknown>;
 }
 
 export interface TicketRequestedDevice {
@@ -25,12 +27,18 @@ export interface TicketQuoteItem {
   quantity: number;
   unitPrice: number;
   amount: number;
+  /** Set = catalogue item (CMS service-part documentId); unset = custom item. */
+  partId: string | null;
+  priceOverridden: boolean;
+  /** Provider's earning per unit; null on quotes created before per-item labour existed. */
+  labour: number | null;
 }
 
 export interface TicketQuote {
   status: QuoteStatus;
   totalAmount: number;
   items: TicketQuoteItem[];
+  notes: string | null;
 }
 
 export interface TicketLogEntry {
@@ -112,6 +120,8 @@ export function describeLogEvent(log: TicketLogEntry): string {
       return 'Provider rejected the job';
     case 'QUOTE_ADDED':
       return 'Quote submitted';
+    case 'QUOTE_UPDATED':
+      return 'Quote edited by admin';
     case 'QUOTE_APPROVED':
       return 'Quote approved by customer';
     case 'QUOTE_REJECTED':
@@ -187,11 +197,15 @@ function buildQuote(quote: NexusQuote | null): TicketQuote | null {
   return {
     status: quote.status,
     totalAmount: quote.totalAmount,
+    notes: quote.notes,
     items: quote.items.map((item) => ({
       name: item.name,
       quantity: item.quantity,
       unitPrice: item.unitPrice,
       amount: item.unitPrice * item.quantity,
+      partId: item.partId ?? null,
+      priceOverridden: item.priceOverridden ?? false,
+      labour: typeof item.labour === 'number' ? item.labour : null,
     })),
   };
 }
@@ -234,7 +248,18 @@ export function mapComplaintToTicket(complaint: NexusComplaint): Ticket {
     pinCode: complaint.address?.pinCode ?? null,
     address: buildAddress(complaint.address),
     requestedDevices: complaint.requestedDevices ?? [],
-    devices: complaint.devices.map((link) => ({ id: link.device.id, type: link.device.type, deviceKey: link.device.deviceKey })),
+    devices: complaint.devices.map((link) => ({
+      id: link.device.id,
+      type: link.device.type,
+      deviceKey: link.device.deviceKey,
+      imageUrl: link.device.imageUrl,
+      // Prisma Json column — only a plain object is a valid spec sheet; anything else would
+      // render as per-character/per-index "fields" in DeviceDetails.
+      metadata:
+        link.device.metadata && typeof link.device.metadata === 'object' && !Array.isArray(link.device.metadata)
+          ? link.device.metadata
+          : {},
+    })),
     quote: buildQuote(complaint.quote),
     logs: complaint.logs.map((log) => ({
       id: log.id,

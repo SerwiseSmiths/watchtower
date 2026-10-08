@@ -5,6 +5,7 @@ import "./globals.css";
 
 import BootstrapClient from "@/components/BootstrapClient";
 import { ScaleVars } from "@/components/ScaleVars";
+import RealtimeFeed from "@/components/RealtimeFeed";
 
 const outfit = Outfit({
   subsets: ["latin"],
@@ -26,6 +27,7 @@ export default function RootLayout({
       <body className={outfit.className}>
         <ScaleVars />
         {children}
+        <RealtimeFeed />
         <BootstrapClient />
       </body>
     </html>

@@ -29,6 +29,8 @@ export interface NexusDevice {
   type: string;
   deviceKey: string;
   imageUrl: string | null;
+  /** Per-type spec fields (company, capacity, …) — shape per deviceKey in tickets/deviceFormConfig.ts. */
+  metadata: Record<string, unknown> | null;
 }
 
 export interface NexusComplaintDeviceLink {
@@ -53,6 +55,9 @@ export interface NexusQuoteItem {
   name: string;
   unitPrice: number;
   quantity: number;
+  priceOverridden?: boolean;
+  /** Per-unit provider earning — absent on quotes created before 2026-09-27. */
+  labour?: number;
 }
 
 export interface NexusQuote {
@@ -170,11 +175,13 @@ export async function linkDeviceToComplaint(complaintId: string, deviceId: strin
 }
 
 /** Assigns (or reassigns) the provider on a complaint — already ADMIN-only on nexus's side. */
-export async function assignProvider(complaintId: string, providerId: string): Promise<void> {
+/** `force` = assign as already accepted — the provider gets no accept/reject popup and can't
+ *  decline (nexus complaint.md §5.2). Default is the normal accept/reject flow. */
+export async function assignProvider(complaintId: string, providerId: string, force = false): Promise<void> {
   await nexusFetch(`/complaint/${complaintId}/assign`, {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ providerId }),
+    body: JSON.stringify({ providerId, force }),
   });
 }
 

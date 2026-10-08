@@ -3,6 +3,7 @@
 import { useEffect, useState, type CSSProperties } from 'react';
 import type { Ticket, TicketStatus, TicketQuoteItem } from './mapComplaint';
 import { formatDeviceType, formatDate, formatDateTime, stageReachedAt, providerAssignedAt } from './mapComplaint';
+import DeviceDetails from './DeviceDetails';
 import {
   ChevronUpIcon,
   ChevronDownIcon,
@@ -277,17 +278,27 @@ export default function TicketDetailPanel({
   const [content, setContent] = useState<Ticket | null>(ticket);
   const [visible, setVisible] = useState(false);
   const [addingAppliance, setAddingAppliance] = useState(false);
+  const [expandedDeviceId, setExpandedDeviceId] = useState<string | null>(null);
   const [creatingQuote, setCreatingQuote] = useState(false);
   const [tab, setTab] = useState<QuoteTab>('activity');
 
-  useEffect(() => {
+  // `ticket` is a new object on every refresh (incl. live realtime ones), so always take the
+  // fresh data but only reset in-progress UI (open forms, tab) when switching to a different
+  // ticket — otherwise a realtime event would wipe a half-entered quote. Kept as the last
+  // non-null ticket so the panel keeps rendering while it slides closed.
+  const [prevTicket, setPrevTicket] = useState(ticket);
+  if (ticket !== prevTicket) {
+    setPrevTicket(ticket);
     if (ticket) {
       setContent(ticket);
-      setAddingAppliance(false);
-      setCreatingQuote(false);
-      setTab('activity');
+      if (ticket.complaintId !== prevTicket?.complaintId) {
+        setAddingAppliance(false);
+        setCreatingQuote(false);
+        setExpandedDeviceId(null);
+        setTab('activity');
+      }
     }
-  }, [ticket]);
+  }
 
   useEffect(() => {
     if (open) {
@@ -543,7 +554,7 @@ export default function TicketDetailPanel({
 
           {content.quote && content.quote.status === 'PENDING' && (
             <div style={{ paddingTop: 15, flexShrink: 0 }}>
-              <QuoteResponseActions complaintId={content.complaintId} />
+              <QuoteResponseActions complaintId={content.complaintId} quote={content.quote} deviceType={content.devices[0]?.type} />
             </div>
           )}
 
@@ -609,18 +620,30 @@ export default function TicketDetailPanel({
             </div>
 
             {content.devices.length > 0 ? (
-              content.devices.map((device) => (
-                <div key={device.id} className="d-flex align-items-center" style={{ padding: '0 13px', height: 44, borderBottom: '1px solid #E5E5E5' }}>
-                  <div style={{ width: 26 }}>
-                    <input type="checkbox" />
+              content.devices.map((device) => {
+                const expanded = expandedDeviceId === device.id;
+                return (
+                  <div key={device.id}>
+                    <div
+                      className="d-flex align-items-center"
+                      role="button"
+                      aria-expanded={expanded}
+                      onClick={() => setExpandedDeviceId(expanded ? null : device.id)}
+                      style={{ padding: '0 13px', height: 44, borderBottom: '1px solid #E5E5E5', cursor: 'pointer', background: expanded ? '#FAFAFA' : undefined }}
+                    >
+                      <div style={{ width: 26 }} onClick={(e) => e.stopPropagation()}>
+                        <input type="checkbox" />
+                      </div>
+                      <div style={{ width: 118, ...cellStyle }}>{device.deviceKey}</div>
+                      <div style={{ width: 118, ...cellStyle }}>{formatDeviceType(device.type)}</div>
+                      <div style={{ width: 30, display: 'flex', transform: expanded ? 'rotate(90deg)' : undefined, transition: 'transform 150ms' }}>
+                        <ChevronRightIcon color={expanded ? '#181818' : undefined} />
+                      </div>
+                    </div>
+                    {expanded && <DeviceDetails device={device} />}
                   </div>
-                  <div style={{ width: 118, ...cellStyle }}>{device.deviceKey}</div>
-                  <div style={{ width: 118, ...cellStyle }}>{formatDeviceType(device.type)}</div>
-                  <div style={{ width: 30 }}>
-                    <ChevronRightIcon />
-                  </div>
-                </div>
-              ))
+                );
+              })
             ) : (
               <div className="d-flex align-items-center justify-content-center" style={{ height: 60, ...labelStyle }}>
                 No appliance linked to this ticket.

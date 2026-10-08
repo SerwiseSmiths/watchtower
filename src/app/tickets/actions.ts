@@ -119,11 +119,19 @@ export async function fetchProviders(search?: string): Promise<NexusProvider[]> 
   return listProviders(search);
 }
 
-export async function reassignProvider(complaintId: string, providerId: string) {
-  await assignProvider(complaintId, providerId);
+export async function reassignProvider(complaintId: string, providerId: string, force = false) {
+  await assignProvider(complaintId, providerId, force);
   revalidatePath('/tickets');
   updateTag('complaints');
-  await logAudit({ module: 'ticket', action: 'UPDATE', entityId: complaintId, changes: { providerId: { old: null, new: providerId } } });
+  await logAudit({
+    module: 'ticket',
+    action: 'UPDATE',
+    entityId: complaintId,
+    changes: {
+      providerId: { old: null, new: providerId },
+      ...(force && { assignmentMode: { old: null, new: 'FORCE' } }),
+    },
+  });
 }
 
 export async function respondToQuoteAction(complaintId: string, approved: boolean, rejectionReason?: string) {
@@ -146,7 +154,13 @@ export async function fetchServicePart(documentId: string): Promise<NexusService
   return getPart(documentId);
 }
 
-export async function addQuoteAction(complaintId: string, items: AddQuoteItemInput[], notes?: string): Promise<NexusComplaint> {
+/** `previousTotal` = editing a pending quote (nexus §6.7) — recorded as the audit entry's old value. */
+export async function addQuoteAction(
+  complaintId: string,
+  items: AddQuoteItemInput[],
+  notes?: string,
+  previousTotal?: number,
+): Promise<NexusComplaint> {
   const complaint = await addQuote(complaintId, items, notes);
   revalidatePath('/tickets');
   updateTag('complaints');
@@ -158,7 +172,7 @@ export async function addQuoteAction(complaintId: string, items: AddQuoteItemInp
     module: 'ticket',
     action: 'UPDATE',
     entityId: complaintId,
-    changes: { quote: { old: null, new: totalAmount } },
+    changes: { quote: { old: previousTotal ?? null, new: totalAmount } },
   });
   return complaint;
 }

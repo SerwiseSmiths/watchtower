@@ -155,7 +155,9 @@ export default function TicketsView({ tickets }: { tickets: Ticket[] }) {
   const [statusFilter, setStatusFilter] = useState<Set<TicketStatus>>(new Set());
   const [filterOpen, setFilterOpen] = useState(false);
   const filterRef = useRef<HTMLDivElement>(null);
-  const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
+  // Keyed by complaintId, not row index — realtime refreshes can insert/reorder rows
+  // under an open panel, and an index would silently swap which ticket it shows.
+  const [selectedId, setSelectedId] = useState<string | null>(null);
   const [addOpen, setAddOpen] = useState(false);
 
   useEffect(() => {
@@ -185,11 +187,9 @@ export default function TicketsView({ tickets }: { tickets: Ticket[] }) {
     });
   }, [tickets, query, statusFilter]);
 
-  useEffect(() => {
-    if (selectedIndex !== null && selectedIndex >= filteredTickets.length) {
-      setSelectedIndex(null);
-    }
-  }, [filteredTickets, selectedIndex]);
+  const foundIndex = selectedId === null ? -1 : filteredTickets.findIndex((t) => t.complaintId === selectedId);
+  // A selected ticket that drops out of the list (filtered out, deleted) just closes the panel.
+  const selectedIndex = foundIndex === -1 ? null : foundIndex;
 
   function toggleStatus(status: TicketStatus) {
     setStatusFilter((prev) => {
@@ -293,7 +293,7 @@ export default function TicketsView({ tickets }: { tickets: Ticket[] }) {
               key={`${ticket.id}-${i}`}
               className="d-flex align-items-center"
               style={{ padding: '0 13px', height: 35, borderBottom: i === filteredTickets.length - 1 ? 'none' : '1px solid #E5E5E5', cursor: 'pointer' }}
-              onClick={() => setSelectedIndex(i)}
+              onClick={() => setSelectedId(ticket.complaintId)}
             >
               <div style={{ width: 26 }} onClick={(e) => e.stopPropagation()}>
                 <input type="checkbox" />
@@ -330,9 +330,13 @@ export default function TicketsView({ tickets }: { tickets: Ticket[] }) {
       <TicketDetailPanel
         ticket={selectedIndex !== null ? filteredTickets[selectedIndex] : null}
         open={selectedIndex !== null}
-        onClose={() => setSelectedIndex(null)}
-        onPrev={() => setSelectedIndex((i) => (i !== null && i > 0 ? i - 1 : i))}
-        onNext={() => setSelectedIndex((i) => (i !== null && i < filteredTickets.length - 1 ? i + 1 : i))}
+        onClose={() => setSelectedId(null)}
+        onPrev={() => {
+          if (selectedIndex !== null && selectedIndex > 0) setSelectedId(filteredTickets[selectedIndex - 1].complaintId);
+        }}
+        onNext={() => {
+          if (selectedIndex !== null && selectedIndex < filteredTickets.length - 1) setSelectedId(filteredTickets[selectedIndex + 1].complaintId);
+        }}
         hasPrev={selectedIndex !== null && selectedIndex > 0}
         hasNext={selectedIndex !== null && selectedIndex < filteredTickets.length - 1}
       />
