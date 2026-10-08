@@ -175,11 +175,13 @@ export async function linkDeviceToComplaint(complaintId: string, deviceId: strin
 }
 
 /** Assigns (or reassigns) the provider on a complaint — already ADMIN-only on nexus's side. */
-export async function assignProvider(complaintId: string, providerId: string): Promise<void> {
+/** `force` = assign as already accepted — the provider gets no accept/reject popup and can't
+ *  decline (nexus complaint.md §5.2). Default is the normal accept/reject flow. */
+export async function assignProvider(complaintId: string, providerId: string, force = false): Promise<void> {
   await nexusFetch(`/complaint/${complaintId}/assign`, {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ providerId }),
+    body: JSON.stringify({ providerId, force }),
   });
 }
 

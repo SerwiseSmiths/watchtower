@@ -119,11 +119,19 @@ export async function fetchProviders(search?: string): Promise<NexusProvider[]> 
   return listProviders(search);
 }
 
-export async function reassignProvider(complaintId: string, providerId: string) {
-  await assignProvider(complaintId, providerId);
+export async function reassignProvider(complaintId: string, providerId: string, force = false) {
+  await assignProvider(complaintId, providerId, force);
   revalidatePath('/tickets');
   updateTag('complaints');
-  await logAudit({ module: 'ticket', action: 'UPDATE', entityId: complaintId, changes: { providerId: { old: null, new: providerId } } });
+  await logAudit({
+    module: 'ticket',
+    action: 'UPDATE',
+    entityId: complaintId,
+    changes: {
+      providerId: { old: null, new: providerId },
+      ...(force && { assignmentMode: { old: null, new: 'FORCE' } }),
+    },
+  });
 }
 
 export async function respondToQuoteAction(complaintId: string, approved: boolean, rejectionReason?: string) {

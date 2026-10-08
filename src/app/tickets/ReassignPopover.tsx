@@ -12,6 +12,9 @@ export default function ReassignPopover({ complaintId, currentProviderId, onDone
   const [open, setOpen] = useState(false);
   const [providers, setProviders] = useState<NexusProvider[] | null>(null);
   const [search, setSearch] = useState('');
+  // Normal = provider accepts/rejects in radix (as before). Force = assigned as already
+  // accepted, no popup, can't be declined (nexus complaint.md §5.2).
+  const [force, setForce] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
   const ref = useRef<HTMLDivElement>(null);
@@ -36,8 +39,9 @@ export default function ReassignPopover({ complaintId, currentProviderId, onDone
     setError(null);
     startTransition(async () => {
       try {
-        await reassignProvider(complaintId, provider.id);
+        await reassignProvider(complaintId, provider.id, force);
         setOpen(false);
+        setForce(false);
         onDone();
       } catch {
         setError('Failed to reassign — please try again.');
@@ -68,7 +72,7 @@ export default function ReassignPopover({ complaintId, currentProviderId, onDone
             position: 'absolute',
             top: 'calc(100% + 6px)',
             right: 0,
-            width: 240,
+            width: 260,
             background: '#FFFFFF',
             border: '1px solid #E5E5E5',
             borderRadius: 8,
@@ -77,6 +81,38 @@ export default function ReassignPopover({ complaintId, currentProviderId, onDone
             zIndex: 30,
           }}
         >
+          <div className="d-flex" role="radiogroup" aria-label="Assignment type" style={{ background: '#EFEFEF', borderRadius: 6, padding: 2, marginBottom: 6 }}>
+            {[
+              { value: false, label: 'Normal' },
+              { value: true, label: 'Force' },
+            ].map((option) => (
+              <button
+                key={option.label}
+                type="button"
+                role="radio"
+                aria-checked={force === option.value}
+                onClick={() => setForce(option.value)}
+                style={{
+                  flex: 1,
+                  border: 'none',
+                  borderRadius: 5,
+                  padding: '5px 0',
+                  fontSize: 11,
+                  fontWeight: 600,
+                  background: force === option.value ? (option.value ? '#D97706' : '#181818') : 'transparent',
+                  color: force === option.value ? '#FFFFFF' : '#6B6B6B',
+                }}
+              >
+                {option.label}
+              </button>
+            ))}
+          </div>
+          <div style={{ fontSize: 10, color: force ? '#B45309' : '#9A9A9A', marginBottom: 8, lineHeight: 1.35 }}>
+            {force
+              ? 'Assigned as accepted — no accept/reject popup, the provider can’t decline.'
+              : 'Provider gets the job popup and can accept or reject.'}
+          </div>
+
           <input
             type="text"
             placeholder="Search providers…"

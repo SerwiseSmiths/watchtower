@@ -33,6 +33,7 @@ interface PayloadComplaint {
   title?: string | null;
   userId?: string;
   providerId?: string | null;
+  providerAccepted?: boolean;
   user?: PayloadPerson | null;
   provider?: PayloadPerson | null;
   quote?: { totalAmount?: number } | null;
@@ -98,7 +99,8 @@ export function reactionFor(event: string, payload: Payload): RealtimeReaction {
       return {
         tags: [...complaintTags(complaint), 'providers'],
         toast: {
-          title: `${ticketRef(complaint)} assigned`,
+          // providerAccepted already true at assignment time = force assignment (nexus §5.2).
+          title: `${ticketRef(complaint)} ${complaint.providerAccepted ? 'force-assigned' : 'assigned'}`,
           body: `To ${personName(complaint.provider, 'a provider')}`,
           tone: 'info',
           href,
