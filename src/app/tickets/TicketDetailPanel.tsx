@@ -24,6 +24,7 @@ import QuoteResponseActions from './QuoteResponseActions';
 import TicketLifecycleActions from './TicketLifecycleActions';
 import NudgeWhatsAppButton from './NudgeWhatsAppButton';
 import RecordCashPayment from './RecordCashPayment';
+import MarkWorkCompleted from './MarkWorkCompleted';
 
 type StageKey = 'RAISED' | 'ASSIGNED' | 'ENTRANCE' | 'ESTIMATION' | 'APPROVAL' | 'IN_PROGRESS' | 'PAYMENT' | 'IN_WARRANTY' | 'COMPLETED' | 'CANCELLED';
 
@@ -556,6 +557,12 @@ export default function TicketDetailPanel({
           {content.quote && content.quote.status === 'PENDING' && (
             <div style={{ paddingTop: 15, flexShrink: 0 }}>
               <QuoteResponseActions complaintId={content.complaintId} quote={content.quote} deviceType={content.devices[0]?.type} />
+            </div>
+          )}
+
+          {content.stage === 'IN_PROGRESS' && (
+            <div style={{ paddingTop: 15, flexShrink: 0 }}>
+              <MarkWorkCompleted key={content.complaintId} complaintId={content.complaintId} />
             </div>
           )}
 
