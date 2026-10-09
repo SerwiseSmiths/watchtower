@@ -23,6 +23,7 @@ import ReassignPopover from './ReassignPopover';
 import QuoteResponseActions from './QuoteResponseActions';
 import TicketLifecycleActions from './TicketLifecycleActions';
 import NudgeWhatsAppButton from './NudgeWhatsAppButton';
+import RecordCashPayment from './RecordCashPayment';
 
 type StageKey = 'RAISED' | 'ASSIGNED' | 'ENTRANCE' | 'ESTIMATION' | 'APPROVAL' | 'IN_PROGRESS' | 'PAYMENT' | 'IN_WARRANTY' | 'COMPLETED' | 'CANCELLED';
 
@@ -555,6 +556,18 @@ export default function TicketDetailPanel({
           {content.quote && content.quote.status === 'PENDING' && (
             <div style={{ paddingTop: 15, flexShrink: 0 }}>
               <QuoteResponseActions complaintId={content.complaintId} quote={content.quote} deviceType={content.devices[0]?.type} />
+            </div>
+          )}
+
+          {content.stage === 'PAYMENT' && content.quote && content.quote.totalAmount > 0 && (
+            <div style={{ paddingTop: 15, flexShrink: 0 }}>
+              <RecordCashPayment
+                key={content.complaintId}
+                complaintId={content.complaintId}
+                customerName={content.name}
+                providerName={content.assignTo}
+                totalAmount={content.quote.totalAmount}
+              />
             </div>
           )}
 
