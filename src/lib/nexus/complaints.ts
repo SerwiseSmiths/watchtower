@@ -164,6 +164,29 @@ export async function nudgeComplaintOnWhatsApp(complaintId: string): Promise<voi
   await nexusFetch(`/complaint/${complaintId}/whatsapp-nudge`, { method: 'POST' });
 }
 
+/** Marks the repair done as ADMIN on the assigned provider's behalf — IN_PROGRESS → PAYMENT,
+ *  same effect as the provider's "work completed" in radix (customer gets the "Repair
+ *  Completed, please pay" notification). */
+export async function completeService(complaintId: string): Promise<NexusComplaint> {
+  const res = await nexusFetch(`/complaint/${complaintId}/complete-service`, { method: 'PATCH' });
+  const body = await res.json();
+  return body.data.complaint as NexusComplaint;
+}
+
+/** Records that the customer paid the full quote in cash directly to the company (e.g. at the
+ *  office) — complaint must be in PAYMENT. Nexus closes it, writes an audit-only CASH entry on
+ *  the customer's ledger (wallet balance untouched), credits the provider their labour only, and
+ *  closes any open UPI QR so the customer can't pay twice. */
+export async function recordCashPayment(complaintId: string, note?: string): Promise<NexusComplaint> {
+  const res = await nexusFetch(`/complaint/${complaintId}/record-cash`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ ...(note && { note }) }),
+  });
+  const body = await res.json();
+  return body.data.complaint as NexusComplaint;
+}
+
 /** Attaches an already-existing device to a complaint as ADMIN — same effect as a provider
  *  identifying the appliance on-site (auto-advances QR_VALIDATED → ESTIMATION). */
 export async function linkDeviceToComplaint(complaintId: string, deviceId: string): Promise<void> {

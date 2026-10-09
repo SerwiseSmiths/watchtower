@@ -2,7 +2,7 @@
 
 import { revalidatePath, updateTag } from 'next/cache';
 import { unstable_rethrow } from 'next/navigation';
-import { setComplaintStage, linkDeviceToComplaint, assignProvider, respondToQuote, addQuote, createComplaint, reopenComplaint, nudgeComplaintOnWhatsApp, type CreateComplaintInput, type NexusComplaint, type AddQuoteItemInput } from '@/lib/nexus/complaints';
+import { setComplaintStage, linkDeviceToComplaint, assignProvider, respondToQuote, addQuote, createComplaint, reopenComplaint, nudgeComplaintOnWhatsApp, recordCashPayment, completeService, type CreateComplaintInput, type NexusComplaint, type AddQuoteItemInput } from '@/lib/nexus/complaints';
 import { addDeviceForCustomer, listDevicesForCustomer, type DeviceKey, type NexusDeviceSummary } from '@/lib/nexus/devices';
 import { listProviders, type NexusProvider } from '@/lib/nexus/providers';
 import { fetchAllCustomers, fetchCustomer, type NexusCustomerListItem, type NexusCustomerDetail } from '@/lib/nexus/customers';
@@ -205,6 +205,42 @@ export async function cancelTicketAction(complaintId: string, reason?: string) {
     entityId: complaintId,
     changes: { stage: { old: null, new: 'REJECTED' }, ...(reason && { rejectionReason: { old: null, new: reason } }) },
   });
+}
+
+/** Provider finished the repair but didn't mark it in radix — moves IN_PROGRESS → PAYMENT. */
+export async function completeWorkAction(complaintId: string): Promise<ActionResult> {
+  try {
+    await completeService(complaintId);
+  } catch (err) {
+    return { ok: false, error: errorMessage(err) };
+  }
+  revalidatePath('/tickets');
+  updateTag('complaints');
+  await logAudit({ module: 'ticket', action: 'UPDATE', entityId: complaintId, changes: { stage: { old: 'IN_PROGRESS', new: 'PAYMENT' } } });
+  return { ok: true, data: null };
+}
+
+/** Customer paid the full quote in cash at the office. Returns a result (not a throw) so the UI
+ *  can show nexus's actual reason — e.g. the customer already paid the provider's UPI QR. */
+export async function recordCashPaymentAction(complaintId: string, amount: number, note?: string): Promise<ActionResult> {
+  try {
+    await recordCashPayment(complaintId, note);
+  } catch (err) {
+    return { ok: false, error: errorMessage(err) };
+  }
+  revalidatePath('/tickets');
+  updateTag('complaints');
+  await logAudit({
+    module: 'ticket',
+    action: 'UPDATE',
+    entityId: complaintId,
+    changes: {
+      stage: { old: 'PAYMENT', new: 'COMPLETED' },
+      cashPayment: { old: null, new: amount },
+      ...(note && { cashPaymentNote: { old: null, new: note } }),
+    },
+  });
+  return { ok: true, data: null };
 }
 
 export async function reopenTicketAction(complaintId: string): Promise<NexusComplaint> {
