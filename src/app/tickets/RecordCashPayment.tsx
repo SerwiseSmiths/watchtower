@@ -1,12 +1,16 @@
 'use client';
 
 import { useState, useTransition, type CSSProperties } from 'react';
+import type { CashCollectedBy } from '@/lib/nexus/complaints';
 import { recordCashPaymentAction } from './actions';
 
-// For a customer who paid the full quote in cash directly to us (e.g. at the office) rather than
-// to the provider or via the provider's UPI QR. Only offered while the ticket is in PAYMENT. Nexus
-// closes the ticket and records it on the customer's ledger as a CASH payment (wallet balance
-// untouched); the provider is credited their labour only, since the company holds the cash.
+// Records a full-quote cash payment while the ticket is in PAYMENT. The admin picks who
+// received the cash:
+//  - Office (COMPANY): the customer paid us directly. The customer's ledger gets a CASH entry
+//    (wallet balance untouched); the provider is credited their labour only.
+//  - Provider (PROVIDER): the provider took cash on-site but didn't mark it in radix. Same
+//    effect as their own Cash Collect: labour credited, then the full amount they hold is
+//    debited (they owe the company the rest).
 
 function formatCurrency(amount: number): string {
   return `₹${amount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -38,6 +42,7 @@ export default function RecordCashPayment({
   totalAmount: number;
 }) {
   const [open, setOpen] = useState(false);
+  const [collectedBy, setCollectedBy] = useState<CashCollectedBy>('COMPANY');
   const [note, setNote] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
@@ -45,6 +50,7 @@ export default function RecordCashPayment({
   function close() {
     if (isPending) return;
     setOpen(false);
+    setCollectedBy('COMPANY');
     setNote('');
     setError(null);
   }
@@ -52,9 +58,10 @@ export default function RecordCashPayment({
   function confirm() {
     setError(null);
     startTransition(async () => {
-      const result = await recordCashPaymentAction(complaintId, totalAmount, note.trim() || undefined);
+      const result = await recordCashPaymentAction(complaintId, totalAmount, collectedBy, note.trim() || undefined);
       if (result.ok) {
         setOpen(false);
+        setCollectedBy('COMPANY');
         setNote('');
       } else {
         setError(result.error);
@@ -101,10 +108,55 @@ export default function RecordCashPayment({
                 <span style={{ fontSize: 16, fontWeight: 700, color: '#000000' }}>{formatCurrency(totalAmount)}</span>
               </div>
 
+              <div>
+                <div style={{ ...headStyle, marginBottom: 6 }}>Who received the cash?</div>
+                <div className="d-flex" style={{ gap: 8 }}>
+                  {(
+                    [
+                      { value: 'COMPANY', label: 'Office (paid to us)' },
+                      { value: 'PROVIDER', label: 'Provider (on-site)' },
+                    ] as const
+                  ).map((option) => {
+                    const selected = collectedBy === option.value;
+                    return (
+                      <button
+                        key={option.value}
+                        type="button"
+                        disabled={isPending}
+                        onClick={() => setCollectedBy(option.value)}
+                        style={{
+                          flex: 1,
+                          borderRadius: 6,
+                          padding: '9px',
+                          fontSize: 12,
+                          fontWeight: 600,
+                          letterSpacing: '-0.03em',
+                          background: selected ? '#181818' : '#FFFFFF',
+                          color: selected ? '#FFFFFF' : '#181818',
+                          border: `1px solid ${selected ? '#181818' : '#E5E5E5'}`,
+                        }}
+                      >
+                        {option.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
               <div style={{ fontSize: 11, color: '#6B6B6B', background: '#FAFAFA', border: '1px solid #F0F0F0', borderRadius: 6, padding: '8px 10px' }}>
-                Use this only when the customer paid the full amount to us directly. The ticket will be closed and the
-                customer&apos;s ledger will show a cash payment. Their wallet balance is not used. The provider is
-                credited their labour.
+                {collectedBy === 'COMPANY' ? (
+                  <>
+                    The customer paid the full amount to us directly. The ticket will be closed and the customer&apos;s
+                    ledger will show a cash payment. Their wallet balance is not used. The provider is credited their
+                    labour.
+                  </>
+                ) : (
+                  <>
+                    {providerName ?? 'The provider'} collected the full amount on-site but didn&apos;t mark it in the app.
+                    The ticket will be closed, the same as the provider pressing Cash Collect. Their labour is credited,
+                    and the rest is recorded as owed to the company.
+                  </>
+                )}
               </div>
 
               <textarea

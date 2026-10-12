@@ -173,15 +173,19 @@ export async function completeService(complaintId: string): Promise<NexusComplai
   return body.data.complaint as NexusComplaint;
 }
 
-/** Records that the customer paid the full quote in cash directly to the company (e.g. at the
- *  office) — complaint must be in PAYMENT. Nexus closes it, writes an audit-only CASH entry on
- *  the customer's ledger (wallet balance untouched), credits the provider their labour only, and
- *  closes any open UPI QR so the customer can't pay twice. */
-export async function recordCashPayment(complaintId: string, note?: string): Promise<NexusComplaint> {
+export type CashCollectedBy = 'COMPANY' | 'PROVIDER';
+
+/** Records a full-quote cash payment as ADMIN. The complaint must be in PAYMENT. Nexus closes it
+ *  and any open UPI QR, so the customer can't pay twice.
+ *  - COMPANY: customer paid us directly, e.g. at the office. Audit-only CASH entry on the customer's
+ *    ledger (wallet balance untouched); provider credited their labour only.
+ *  - PROVIDER: provider collected on-site but didn't mark it in radix. Identical to the provider's
+ *    own Cash Collect: labour credit, then a debit of the full amount they're holding. */
+export async function recordCashPayment(complaintId: string, collectedBy: CashCollectedBy, note?: string): Promise<NexusComplaint> {
   const res = await nexusFetch(`/complaint/${complaintId}/record-cash`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ ...(note && { note }) }),
+    body: JSON.stringify({ collectedBy, ...(note && { note }) }),
   });
   const body = await res.json();
   return body.data.complaint as NexusComplaint;
