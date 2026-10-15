@@ -21,13 +21,17 @@ const inputStyle: CSSProperties = {
 const labelStyle: CSSProperties = { fontSize: 12, fontWeight: 600, letterSpacing: '-0.03em', color: '#454545', marginBottom: 4 };
 
 /** Ola Maps' autocomplete only returns free-text description strings, not
- *  structured fields — this is a best-effort split, not a real geocoder. */
-function deriveLocationFromPrediction(prediction: AddressPrediction): Pick<NexusProviderAddress, 'city' | 'state' | 'country'> {
+ *  structured fields — this is a best-effort split, not a real geocoder.
+ *  Indian addresses end "…, City, State, 395007, India", so the pincode is
+ *  pulled out first or every field shifts by one. */
+function deriveLocationFromPrediction(prediction: AddressPrediction): Pick<NexusProviderAddress, 'city' | 'state' | 'country' | 'pinCode'> {
   const parts = prediction.secondaryText.split(',').map((p) => p.trim()).filter(Boolean);
+  const pinIndex = parts.findIndex((p) => /^\d{6}$/.test(p));
+  const pinCode = pinIndex >= 0 ? parts.splice(pinIndex, 1)[0] : undefined;
   const country = parts[parts.length - 1];
   const state = parts[parts.length - 2];
   const city = parts[parts.length - 3] ?? parts[0];
-  return { city, state, country };
+  return { city, state, country, ...(pinCode && { pinCode }) };
 }
 
 export default function AddressFields({
