@@ -30,14 +30,22 @@ const inputStyle: CSSProperties = {
 
 const labelStyle: CSSProperties = { fontSize: 12, fontWeight: 600, letterSpacing: '-0.03em', color: '#454545', marginBottom: 4 };
 
-/** Ola Maps' geocoding only returns free-text description strings, not
- *  structured fields — this is a best-effort split, not a real geocoder. */
-function deriveLocation(prediction: AddressPrediction): { city?: string; state?: string; country?: string } {
-  const parts = prediction.secondaryText.split(',').map((p) => p.trim()).filter(Boolean);
-  const country = parts[parts.length - 1];
-  const state = parts[parts.length - 2];
-  const city = parts[parts.length - 3] ?? parts[0];
-  return { city, state, country };
+type DerivedLocation = { city?: string; state?: string; country?: string; pinCode?: string };
+
+/** Prefers the structured fields nexus extracts from Ola's reverse-geocode
+ *  address_components; falls back to splitting the free-text address (Indian
+ *  addresses end "…, City, State, 395007, India", so the pincode is pulled out
+ *  first or every field shifts by one). */
+function deriveLocation(prediction: AddressPrediction): DerivedLocation {
+  const parts = (prediction.secondaryText || prediction.description).split(',').map((p) => p.trim()).filter(Boolean);
+  const pinIndex = parts.findIndex((p) => /^\d{6}$/.test(p));
+  const pinFromText = pinIndex >= 0 ? parts.splice(pinIndex, 1)[0] : undefined;
+  return {
+    city: prediction.city ?? parts[parts.length - 3] ?? parts[0],
+    state: prediction.state ?? parts[parts.length - 2],
+    country: prediction.country ?? parts[parts.length - 1],
+    pinCode: prediction.pinCode ?? pinFromText,
+  };
 }
 
 export default function AddressMapModal({
@@ -93,13 +101,16 @@ export default function AddressMapModal({
     }, 300);
   }
 
-  function selectPrediction(prediction: AddressPrediction) {
+  async function selectPrediction(prediction: AddressPrediction) {
     setLat(prediction.lat);
     setLng(prediction.lng);
     setAutofillText(prediction.description);
     setLocation(deriveLocation(prediction));
     setQuery('');
     setOpen(false);
+    // Autocomplete has no structured fields — reverse-geocode the picked point to get them.
+    const structured = await reverseGeocodeAction(prediction.lat, prediction.lng);
+    if (structured) setLocation(deriveLocation({ ...structured, secondaryText: prediction.secondaryText, description: prediction.description }));
   }
 
   async function handleMapChange(newLat: number, newLng: number) {

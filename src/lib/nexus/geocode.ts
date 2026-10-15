@@ -8,6 +8,12 @@ export interface AddressPrediction {
   lat: number;
   lng: number;
   types: string[];
+  // Structured fields — only present on reverse-geocode results.
+  area?: string;
+  city?: string;
+  state?: string;
+  country?: string;
+  pinCode?: string;
 }
 
 export async function autocompleteAddress(input: string): Promise<AddressPrediction[]> {
