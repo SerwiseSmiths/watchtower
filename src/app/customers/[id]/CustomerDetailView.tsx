@@ -40,6 +40,11 @@ function initialsFor(firstName: string | null, lastName: string | null, fallback
 
 function addressLines(address: NexusCustomerAddress): { short: string; full: string } {
   const short = `${address.houseNo}, ${address.societyName}`;
+  // Map-picked addresses (serwise + watchtower) store the full resolved address
+  // in addressLineOne, already including city/state/pincode.
+  if (address.addressLineOne && address.city && address.addressLineOne.includes(address.city)) {
+    return { short, full: address.addressLineOne };
+  }
   const full = [address.addressLineOne, address.addressLineTwo, address.area, address.city, address.state, address.pinCode]
     .filter(Boolean)
     .join(', ');

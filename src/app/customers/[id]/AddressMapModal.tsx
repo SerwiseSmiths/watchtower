@@ -4,7 +4,7 @@ import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import dynamic from 'next/dynamic';
 import type { NexusCustomerAddress, CustomerAddressInput } from '@/lib/nexus/customers';
 import type { AddressPrediction } from '@/lib/nexus/geocode';
-import { searchAddressAction, reverseGeocodeAction } from './actions';
+import { searchAddressAction, reverseGeocodeAction, placeDetailsAction } from './actions';
 
 const AddressMap = dynamic(() => import('./AddressMap'), { ssr: false });
 
@@ -30,7 +30,7 @@ const inputStyle: CSSProperties = {
 
 const labelStyle: CSSProperties = { fontSize: 12, fontWeight: 600, letterSpacing: '-0.03em', color: '#454545', marginBottom: 4 };
 
-type DerivedLocation = { city?: string; state?: string; country?: string; pinCode?: string };
+type DerivedLocation = { area?: string; city?: string; state?: string; country?: string; pinCode?: string };
 
 /** Prefers the structured fields nexus extracts from Ola's reverse-geocode
  *  address_components; falls back to splitting the free-text address (Indian
@@ -41,6 +41,7 @@ function deriveLocation(prediction: AddressPrediction): DerivedLocation {
   const pinIndex = parts.findIndex((p) => /^\d{6}$/.test(p));
   const pinFromText = pinIndex >= 0 ? parts.splice(pinIndex, 1)[0] : undefined;
   return {
+    area: prediction.area,
     city: prediction.city ?? parts[parts.length - 3] ?? parts[0],
     state: prediction.state ?? parts[parts.length - 2],
     country: prediction.country ?? parts[parts.length - 1],
@@ -63,20 +64,27 @@ export default function AddressMapModal({
 }) {
   const [saveAs, setSaveAs] = useState<SaveAs>((initial.title as SaveAs) ?? 'Home');
   const [houseNo, setHouseNo] = useState(initial.houseNo ?? '');
-  const [street, setStreet] = useState(initial.addressLineOne ?? '');
+  // Same field layout as serwise's SaveAddressModal: the typed street goes in
+  // societyName, the full map-resolved address goes in addressLineOne.
+  const [street, setStreet] = useState(initial.societyName && initial.societyName !== initial.houseNo ? initial.societyName : '');
   const [autofillText, setAutofillText] = useState(
-    [initial.addressLineOne, initial.area, initial.city, initial.state].filter(Boolean).join(', '),
+    initial.addressLineOne && initial.city && initial.addressLineOne.includes(initial.city)
+      ? initial.addressLineOne
+      : [initial.addressLineOne, initial.area, initial.city, initial.state].filter(Boolean).join(', '),
   );
+  const [placeName, setPlaceName] = useState('');
   const [directionNote, setDirectionNote] = useState(initial.directionNote ?? '');
   const [lat, setLat] = useState(initial.latitude ? Number(initial.latitude) : DEFAULT_LAT);
   const [lng, setLng] = useState(initial.longitude ? Number(initial.longitude) : DEFAULT_LNG);
-  const [location, setLocation] = useState<{ city?: string; state?: string; country?: string; pinCode?: string }>({
+  const [location, setLocation] = useState<DerivedLocation>({
+    area: initial.area ?? undefined,
     city: initial.city ?? undefined,
     state: initial.state ?? undefined,
     country: initial.country ?? undefined,
     pinCode: initial.pinCode ?? undefined,
   });
 
+  const [resolving, setResolving] = useState(false);
   const [query, setQuery] = useState('');
   const [predictions, setPredictions] = useState<AddressPrediction[]>([]);
   const [open, setOpen] = useState(false);
@@ -105,12 +113,26 @@ export default function AddressMapModal({
     setLat(prediction.lat);
     setLng(prediction.lng);
     setAutofillText(prediction.description);
+    setPlaceName(prediction.mainText);
     setLocation(deriveLocation(prediction));
     setQuery('');
     setOpen(false);
-    // Autocomplete has no structured fields — reverse-geocode the picked point to get them.
-    const structured = await reverseGeocodeAction(prediction.lat, prediction.lng);
-    if (structured) setLocation(deriveLocation({ ...structured, secondaryText: prediction.secondaryText, description: prediction.description }));
+    // Autocomplete coordinates are rounded to 4 decimals and carry no structured
+    // fields — place details returns the exact point plus city/state/pincode.
+    setResolving(true);
+    try {
+      const details = await placeDetailsAction(prediction.placeId);
+      if (details) {
+        setLat(details.lat);
+        setLng(details.lng);
+        setLocation(deriveLocation({ ...details, secondaryText: prediction.secondaryText, description: prediction.description }));
+        return;
+      }
+      const structured = await reverseGeocodeAction(prediction.lat, prediction.lng);
+      if (structured) setLocation(deriveLocation({ ...structured, secondaryText: prediction.secondaryText, description: prediction.description }));
+    } finally {
+      setResolving(false);
+    }
   }
 
   async function handleMapChange(newLat: number, newLng: number) {
@@ -119,6 +141,7 @@ export default function AddressMapModal({
     const prediction = await reverseGeocodeAction(newLat, newLng);
     if (prediction) {
       setAutofillText(prediction.description);
+      setPlaceName(prediction.mainText);
       setLocation(deriveLocation(prediction));
     }
   }
@@ -127,10 +150,9 @@ export default function AddressMapModal({
     onSave({
       title: saveAs,
       houseNo,
-      // Address requires a societyName; this compact map-picker UI doesn't
-      // collect one separately, so it falls back to the house/flat text.
-      societyName: houseNo || 'Address',
-      addressLineOne: street || undefined,
+      societyName: street.trim() || placeName || houseNo || 'Address',
+      addressLineOne: autofillText || undefined,
+      area: location.area,
       city: location.city,
       state: location.state,
       country: location.country,
@@ -141,7 +163,7 @@ export default function AddressMapModal({
     });
   }
 
-  const canSave = houseNo.trim().length > 0;
+  const canSave = houseNo.trim().length > 0 && !resolving;
 
   return (
     <div style={{ position: 'fixed', inset: 0, zIndex: 60, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.45)' }}>
