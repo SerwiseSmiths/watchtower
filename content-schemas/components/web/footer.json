@@ -1,0 +1,33 @@
+{
+  "collectionName": "components_web_footers",
+  "info": {
+    "displayName": "Footer",
+    "description": "Footer links and the large cropped wordmark"
+  },
+  "options": {},
+  "attributes": {
+    "links": {
+      "type": "component",
+      "repeatable": true,
+      "component": "web.link"
+    },
+    "linkStyle": {
+      "type": "component",
+      "repeatable": false,
+      "component": "web.text-style"
+    },
+    "wordmark": {
+      "type": "media",
+      "multiple": false,
+      "required": false,
+      "allowedTypes": [
+        "images"
+      ]
+    },
+    "style": {
+      "type": "component",
+      "repeatable": false,
+      "component": "web.section-style"
+    }
+  }
+}

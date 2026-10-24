@@ -1,0 +1,45 @@
+{
+  "collectionName": "components_web_feature_grids",
+  "info": {
+    "displayName": "Feature Grid",
+    "description": "'Service & Beyond' — 2×2 illustrated feature cards"
+  },
+  "options": {},
+  "attributes": {
+    "heading": {
+      "type": "string"
+    },
+    "headingStyle": {
+      "type": "component",
+      "repeatable": false,
+      "component": "web.text-style"
+    },
+    "cards": {
+      "type": "component",
+      "repeatable": true,
+      "component": "web.feature-card"
+    },
+    "cardBackground": {
+      "type": "customField",
+      "customField": "plugin::color-picker.color",
+      "options": {
+        "format": "hex"
+      }
+    },
+    "cardTitleStyle": {
+      "type": "component",
+      "repeatable": false,
+      "component": "web.text-style"
+    },
+    "cardDescriptionStyle": {
+      "type": "component",
+      "repeatable": false,
+      "component": "web.text-style"
+    },
+    "style": {
+      "type": "component",
+      "repeatable": false,
+      "component": "web.section-style"
+    }
+  }
+}

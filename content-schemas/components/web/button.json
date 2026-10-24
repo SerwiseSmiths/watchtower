@@ -1,0 +1,69 @@
+{
+  "collectionName": "components_web_buttons",
+  "info": {
+    "displayName": "Button",
+    "description": "Label, what happens on click, and how it looks"
+  },
+  "options": {},
+  "attributes": {
+    "label": {
+      "type": "string"
+    },
+    "action": {
+      "type": "enumeration",
+      "enum": [
+        "none",
+        "login",
+        "join",
+        "link",
+        "call",
+        "scroll"
+      ],
+      "default": "login"
+    },
+    "href": {
+      "type": "string"
+    },
+    "openInNewTab": {
+      "type": "boolean",
+      "default": false
+    },
+    "variant": {
+      "type": "enumeration",
+      "enum": [
+        "dark",
+        "outline",
+        "pill",
+        "light"
+      ],
+      "default": "dark"
+    },
+    "backgroundColor": {
+      "type": "customField",
+      "customField": "plugin::color-picker.color",
+      "options": {
+        "format": "hex"
+      }
+    },
+    "textColor": {
+      "type": "customField",
+      "customField": "plugin::color-picker.color",
+      "options": {
+        "format": "hex"
+      }
+    },
+    "borderColor": {
+      "type": "customField",
+      "customField": "plugin::color-picker.color",
+      "options": {
+        "format": "hex"
+      }
+    },
+    "borderRadius": {
+      "type": "integer"
+    },
+    "fontSize": {
+      "type": "decimal"
+    }
+  }
+}

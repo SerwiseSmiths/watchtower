@@ -1,0 +1,51 @@
+{
+  "collectionName": "components_web_services_grids",
+  "info": {
+    "displayName": "Services Grid",
+    "description": "'Explore All Services' — appliance cards plus the 'Coming Up Next' card"
+  },
+  "options": {},
+  "attributes": {
+    "heading": {
+      "type": "string"
+    },
+    "headingStyle": {
+      "type": "component",
+      "repeatable": false,
+      "component": "web.text-style"
+    },
+    "cards": {
+      "type": "component",
+      "repeatable": true,
+      "component": "web.service-card"
+    },
+    "cardBackground": {
+      "type": "customField",
+      "customField": "plugin::color-picker.color",
+      "options": {
+        "format": "hex"
+      }
+    },
+    "cardTitleStyle": {
+      "type": "component",
+      "repeatable": false,
+      "component": "web.text-style"
+    },
+    "cardDescriptionStyle": {
+      "type": "component",
+      "repeatable": false,
+      "component": "web.text-style"
+    },
+    "comingSoonTitle": {
+      "type": "string"
+    },
+    "comingSoonDescription": {
+      "type": "text"
+    },
+    "style": {
+      "type": "component",
+      "repeatable": false,
+      "component": "web.section-style"
+    }
+  }
+}

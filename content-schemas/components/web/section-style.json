@@ -1,0 +1,73 @@
+{
+  "collectionName": "components_web_section_styles",
+  "info": {
+    "displayName": "Section Style",
+    "description": "Background, spacing and visibility for a page section"
+  },
+  "options": {},
+  "attributes": {
+    "backgroundColor": {
+      "type": "customField",
+      "customField": "plugin::color-picker.color",
+      "options": {
+        "format": "hex"
+      }
+    },
+    "gradientFrom": {
+      "type": "customField",
+      "customField": "plugin::color-picker.color",
+      "options": {
+        "format": "hex"
+      }
+    },
+    "gradientTo": {
+      "type": "customField",
+      "customField": "plugin::color-picker.color",
+      "options": {
+        "format": "hex"
+      }
+    },
+    "gradientAngle": {
+      "type": "integer",
+      "default": 180
+    },
+    "backgroundImage": {
+      "type": "media",
+      "multiple": false,
+      "required": false,
+      "allowedTypes": [
+        "images"
+      ]
+    },
+    "paddingTop": {
+      "type": "integer"
+    },
+    "paddingBottom": {
+      "type": "integer"
+    },
+    "paddingTopMobile": {
+      "type": "integer"
+    },
+    "paddingBottomMobile": {
+      "type": "integer"
+    },
+    "maxWidth": {
+      "type": "integer"
+    },
+    "textAlign": {
+      "type": "enumeration",
+      "enum": [
+        "left",
+        "center",
+        "right"
+      ]
+    },
+    "hidden": {
+      "type": "boolean",
+      "default": false
+    },
+    "anchorId": {
+      "type": "string"
+    }
+  }
+}

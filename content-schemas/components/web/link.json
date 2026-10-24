@@ -1,0 +1,32 @@
+{
+  "collectionName": "components_web_links",
+  "info": {
+    "displayName": "Link",
+    "description": "A text link — to a URL, or an action like opening the login drawer"
+  },
+  "options": {},
+  "attributes": {
+    "label": {
+      "type": "string"
+    },
+    "action": {
+      "type": "enumeration",
+      "enum": [
+        "none",
+        "login",
+        "join",
+        "link",
+        "call",
+        "scroll"
+      ],
+      "default": "link"
+    },
+    "href": {
+      "type": "string"
+    },
+    "openInNewTab": {
+      "type": "boolean",
+      "default": false
+    }
+  }
+}

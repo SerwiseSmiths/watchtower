@@ -1,0 +1,51 @@
+{
+  "collectionName": "components_web_headers",
+  "info": {
+    "displayName": "Header",
+    "description": "Top bar: logo, navigation, Get the App and Sign in"
+  },
+  "options": {},
+  "attributes": {
+    "logo": {
+      "type": "media",
+      "multiple": false,
+      "required": false,
+      "allowedTypes": [
+        "images"
+      ]
+    },
+    "wordmark": {
+      "type": "media",
+      "multiple": false,
+      "required": false,
+      "allowedTypes": [
+        "images"
+      ]
+    },
+    "navLinks": {
+      "type": "component",
+      "repeatable": true,
+      "component": "web.link"
+    },
+    "navStyle": {
+      "type": "component",
+      "repeatable": false,
+      "component": "web.text-style"
+    },
+    "appButton": {
+      "type": "component",
+      "repeatable": false,
+      "component": "web.button"
+    },
+    "signInButton": {
+      "type": "component",
+      "repeatable": false,
+      "component": "web.button"
+    },
+    "style": {
+      "type": "component",
+      "repeatable": false,
+      "component": "web.section-style"
+    }
+  }
+}

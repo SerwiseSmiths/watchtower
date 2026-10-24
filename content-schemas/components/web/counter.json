@@ -1,0 +1,38 @@
+{
+  "collectionName": "components_web_counters",
+  "info": {
+    "displayName": "Counter",
+    "description": "Split-flap 'Tickets Resolved' counter"
+  },
+  "options": {},
+  "attributes": {
+    "label": {
+      "type": "string"
+    },
+    "labelStyle": {
+      "type": "component",
+      "repeatable": false,
+      "component": "web.text-style"
+    },
+    "value": {
+      "type": "string",
+      "required": true
+    },
+    "animate": {
+      "type": "boolean",
+      "default": true
+    },
+    "digitColor": {
+      "type": "customField",
+      "customField": "plugin::color-picker.color",
+      "options": {
+        "format": "hex"
+      }
+    },
+    "style": {
+      "type": "component",
+      "repeatable": false,
+      "component": "web.section-style"
+    }
+  }
+}

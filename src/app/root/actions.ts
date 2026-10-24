@@ -14,6 +14,7 @@ import {
   verifyPendingToken,
 } from '@/lib/auth/root-session';
 import { buildAuthenticationOptions, signChallenge, verifyAssertion, verifyChallengeToken } from '@/lib/auth/webauthn';
+import { isPasskeyRequired } from '@/lib/auth/passkey-policy';
 import type { AuthenticationResponseJSON } from '@simplewebauthn/server';
 
 export interface RequestOtpState {
@@ -34,6 +35,8 @@ export interface VerifyOtpState {
   error?: string;
   verified?: boolean;
   hasCredentials?: boolean;
+  /** Passkey step skipped (non-prod) — the root session is already set. */
+  signedIn?: boolean;
 }
 
 export async function verifyOtpAction(_prev: VerifyOtpState | undefined, formData: FormData): Promise<VerifyOtpState> {
@@ -45,6 +48,15 @@ export async function verifyOtpAction(_prev: VerifyOtpState | undefined, formDat
   if (!result.ok) return { error: result.error };
 
   const cookieStore = await cookies();
+
+  // Local / dev: OTP alone signs in (see passkey-policy.ts)
+  if (!isPasskeyRequired()) {
+    const operator = await findOperatorById(result.operatorId);
+    if (!operator) return { error: 'Operator not found' };
+    setRootSession(cookieStore, operator.id, operator.admin_user_id);
+    return { verified: true, signedIn: true };
+  }
+
   cookieStore.set(ROOT_PENDING_COOKIE_NAME, signPendingToken(result.operatorId), {
     httpOnly: true,
     secure: process.env.NODE_ENV === 'production',
@@ -100,15 +112,19 @@ export async function verifyAssertionAction(response: AuthenticationResponseJSON
 
   cookieStore.delete(ROOT_PENDING_COOKIE_NAME);
   cookieStore.delete('watchtower_webauthn_challenge');
-  cookieStore.set(ROOT_SESSION_COOKIE_NAME, signRootSession(operator.id, operator.admin_user_id), {
+  setRootSession(cookieStore, operator.id, operator.admin_user_id);
+
+  return { ok: true };
+}
+
+function setRootSession(cookieStore: Awaited<ReturnType<typeof cookies>>, operatorId: number, adminUserId: number) {
+  cookieStore.set(ROOT_SESSION_COOKIE_NAME, signRootSession(operatorId, adminUserId), {
     httpOnly: true,
     secure: process.env.NODE_ENV === 'production',
     sameSite: 'lax',
     path: '/',
     maxAge: ROOT_SESSION_MAX_AGE,
   });
-
-  return { ok: true };
 }
 
 export async function logoutRootAction() {

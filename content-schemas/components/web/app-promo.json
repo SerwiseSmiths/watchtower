@@ -1,0 +1,85 @@
+{
+  "collectionName": "components_web_app_promos",
+  "info": {
+    "displayName": "App Promo",
+    "description": "'Get the App' — hand-held phone, tagline and QR card"
+  },
+  "options": {},
+  "attributes": {
+    "wordmark": {
+      "type": "media",
+      "multiple": false,
+      "required": false,
+      "allowedTypes": [
+        "images"
+      ]
+    },
+    "lead": {
+      "type": "text"
+    },
+    "leadStyle": {
+      "type": "component",
+      "repeatable": false,
+      "component": "web.text-style"
+    },
+    "taglineTop": {
+      "type": "string"
+    },
+    "taglineBottom": {
+      "type": "string"
+    },
+    "taglineStyle": {
+      "type": "component",
+      "repeatable": false,
+      "component": "web.text-style"
+    },
+    "handImage": {
+      "type": "media",
+      "multiple": false,
+      "required": false,
+      "allowedTypes": [
+        "images"
+      ]
+    },
+    "arcColorFrom": {
+      "type": "customField",
+      "customField": "plugin::color-picker.color",
+      "options": {
+        "format": "hex"
+      }
+    },
+    "arcColorTo": {
+      "type": "customField",
+      "customField": "plugin::color-picker.color",
+      "options": {
+        "format": "hex"
+      }
+    },
+    "qrImage": {
+      "type": "media",
+      "multiple": false,
+      "required": false,
+      "allowedTypes": [
+        "images"
+      ]
+    },
+    "qrLabel": {
+      "type": "string"
+    },
+    "qrLink": {
+      "type": "string"
+    },
+    "qrCardBackground": {
+      "type": "customField",
+      "customField": "plugin::color-picker.color",
+      "options": {
+        "format": "hex"
+      }
+    },
+    "style": {
+      "type": "component",
+      "repeatable": false,
+      "component": "web.section-style"
+    }
+  }
+}

@@ -96,13 +96,26 @@ function providerToForm(provider: NexusProviderDetail): FormState {
   };
 }
 
+/** Starting values for a new provider — e.g. from a website "Join Serwise" request. */
+export interface ProviderPrefill {
+  firstName: string;
+  lastName: string;
+  phoneNo: string;
+  skills: DeviceTypeKey[];
+  city?: string;
+  adminNotes?: string;
+}
+
 export default function ProviderDrawer({
   open,
   providerId,
+  prefill,
   onClose,
 }: {
   open: boolean;
   providerId: string | null;
+  /** Only used when creating (providerId is null). */
+  prefill?: ProviderPrefill | null;
   onClose: () => void;
 }) {
   const router = useRouter();
@@ -135,7 +148,19 @@ export default function ProviderDrawer({
     setError(null);
 
     if (!providerId) {
-      setForm(EMPTY_FORM);
+      setForm(
+        prefill
+          ? {
+              ...EMPTY_FORM,
+              firstName: prefill.firstName,
+              lastName: prefill.lastName,
+              phoneNo: prefill.phoneNo,
+              skills: prefill.skills,
+              currentAddress: prefill.city ? { city: prefill.city } : {},
+              adminNotes: prefill.adminNotes ?? '',
+            }
+          : EMPTY_FORM,
+      );
       return;
     }
 
@@ -144,7 +169,7 @@ export default function ProviderDrawer({
       .then((provider) => setForm(providerToForm(provider)))
       .catch((err) => setError(err instanceof Error ? err.message : 'Failed to load provider'))
       .finally(() => setLoading(false));
-  }, [open, providerId]);
+  }, [open, providerId, prefill]);
 
   function toggleSkill(skill: DeviceTypeKey) {
     setForm((prev) => ({

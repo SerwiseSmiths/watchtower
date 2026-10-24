@@ -51,6 +51,8 @@ const CONTENT_ITEMS: NavItem[] = [
       { href: '/cms?tab=global-config', label: 'Global Config', tab: 'global-config' },
       { href: '/cms?tab=welcome-bonus', label: 'Welcome Bonus', tab: 'welcome-bonus' },
       { href: '/cms?tab=pages', label: 'Pages', tab: 'pages' },
+      { href: '/cms?tab=web-pages', label: 'Web Pages', tab: 'web-pages' },
+      { href: '/cms?tab=login', label: 'Website Login', tab: 'login' },
     ],
   },
   { href: '/audit-log', label: 'Audit Log' },

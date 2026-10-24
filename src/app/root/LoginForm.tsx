@@ -37,6 +37,11 @@ export default function LoginForm() {
 
   useEffect(() => {
     if (!verifyState?.verified) return;
+    // Non-prod: the server already signed us in after OTP — no passkey step
+    if (verifyState.signedIn) {
+      startTransition(() => router.refresh());
+      return;
+    }
     if (!verifyState.hasCredentials) {
       setStep('no-passkey');
       return;

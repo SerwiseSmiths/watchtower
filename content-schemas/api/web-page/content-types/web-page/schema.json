@@ -1,0 +1,54 @@
+{
+  "kind": "collectionType",
+  "collectionName": "web_pages",
+  "info": {
+    "singularName": "web-page",
+    "pluralName": "web-pages",
+    "displayName": "Web Page",
+    "description": "Website pages (serwise.co.in) built from ordered, styleable section blocks"
+  },
+  "options": {
+    "draftAndPublish": true
+  },
+  "attributes": {
+    "title": {
+      "type": "string",
+      "required": true
+    },
+    "handle": {
+      "type": "uid",
+      "targetField": "title",
+      "required": true
+    },
+    "seoTitle": {
+      "type": "string"
+    },
+    "seoDescription": {
+      "type": "text"
+    },
+    "seoImage": {
+      "type": "media",
+      "multiple": false,
+      "required": false,
+      "allowedTypes": [
+        "images"
+      ]
+    },
+    "blocks": {
+      "type": "dynamiczone",
+      "components": [
+        "web.header",
+        "web.hero",
+        "web.services-grid",
+        "web.feature-grid",
+        "web.app-promo",
+        "web.support",
+        "web.counter",
+        "web.help-cta",
+        "web.footer"
+      ],
+      "required": false
+    }
+  },
+  "pluginOptions": {}
+}

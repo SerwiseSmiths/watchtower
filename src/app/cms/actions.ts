@@ -3,8 +3,8 @@
 import { revalidatePath } from 'next/cache';
 import { prisma } from '@/lib/db/prisma';
 import { uploadToCloudinary } from '@/lib/media/cloudinary';
-import { createEntity, updateEntity, deleteEntity, findSingleType } from '@/lib/db/entity-repository';
-import { BOTTOM_TAB_UID, COMPLAINT_PAGE_UID, GLOBAL_CONFIG_UID, WELCOME_BONUS_UID, PAGE_UID } from './content-types';
+import { createEntity, updateEntity, deleteEntity, findSingleType, publishEntity, unpublishEntity } from '@/lib/db/entity-repository';
+import { BOTTOM_TAB_UID, COMPLAINT_PAGE_UID, GLOBAL_CONFIG_UID, WELCOME_BONUS_UID, PAGE_UID, WEB_PAGE_UID, LOGIN_UID } from './content-types';
 
 async function saveSingleType(uid: string, data: Record<string, unknown>) {
   const existing = await findSingleType(uid, { status: 'draft' });
@@ -44,6 +44,34 @@ export async function updatePageAction(id: number, data: Record<string, unknown>
 export async function deletePageAction(id: number) {
   await deleteEntity(PAGE_UID, id);
   revalidatePath('/cms');
+}
+
+// ─── Website: Web Pages (draft & publish) + Login ────────────────────────────
+
+/** Saves the draft (creating it when `id` is null); with `publish`, also makes it live on the website. */
+export async function saveWebPageAction(id: number | null, data: Record<string, unknown>, publish: boolean) {
+  const saved = id == null ? await createEntity(WEB_PAGE_UID, data) : await updateEntity(WEB_PAGE_UID, id, data);
+  if (!saved) throw new Error('Could not save the page');
+  if (publish) await publishEntity(WEB_PAGE_UID, saved.id as number);
+  revalidatePath('/cms');
+  return { id: saved.id as number, documentId: saved.documentId as string };
+}
+
+/** Takes the page off the website, keeping the draft. */
+export async function unpublishWebPageAction(id: number) {
+  await unpublishEntity(WEB_PAGE_UID, id);
+  revalidatePath('/cms');
+}
+
+/** Deletes the draft and its published version. */
+export async function deleteWebPageAction(id: number) {
+  await unpublishEntity(WEB_PAGE_UID, id);
+  await deleteEntity(WEB_PAGE_UID, id);
+  revalidatePath('/cms');
+}
+
+export async function saveLoginAction(data: Record<string, unknown>) {
+  return saveSingleType(LOGIN_UID, data);
 }
 
 export interface UploadedImage {
