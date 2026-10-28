@@ -1,0 +1,55 @@
+{
+  "collectionName": "components_web_heroes",
+  "info": {
+    "displayName": "Hero",
+    "description": "Headline, subtitle and the appliance + address search bar"
+  },
+  "options": {},
+  "attributes": {
+    "title": {
+      "type": "string"
+    },
+    "titleStyle": {
+      "type": "component",
+      "repeatable": false,
+      "component": "web.text-style"
+    },
+    "subtitle": {
+      "type": "text"
+    },
+    "subtitleStyle": {
+      "type": "component",
+      "repeatable": false,
+      "component": "web.text-style"
+    },
+    "serviceLabel": {
+      "type": "string"
+    },
+    "servicePlaceholder": {
+      "type": "string"
+    },
+    "addressLabel": {
+      "type": "string"
+    },
+    "addressPlaceholder": {
+      "type": "string"
+    },
+    "searchBackground": {
+      "type": "customField",
+      "customField": "plugin::color-picker.color",
+      "options": {
+        "format": "hex"
+      }
+    },
+    "bookButton": {
+      "type": "component",
+      "repeatable": false,
+      "component": "web.button"
+    },
+    "style": {
+      "type": "component",
+      "repeatable": false,
+      "component": "web.section-style"
+    }
+  }
+}

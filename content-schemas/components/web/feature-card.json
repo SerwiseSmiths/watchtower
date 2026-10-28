@@ -1,0 +1,40 @@
+{
+  "collectionName": "components_web_feature_cards",
+  "info": {
+    "displayName": "Feature Card",
+    "description": "One card in the 'Service & Beyond' grid"
+  },
+  "options": {},
+  "attributes": {
+    "title": {
+      "type": "string",
+      "required": true
+    },
+    "description": {
+      "type": "text"
+    },
+    "illustration": {
+      "type": "enumeration",
+      "enum": [
+        "image",
+        "history",
+        "phone"
+      ],
+      "default": "image"
+    },
+    "image": {
+      "type": "media",
+      "multiple": false,
+      "required": false,
+      "allowedTypes": [
+        "images"
+      ]
+    },
+    "imageWidth": {
+      "type": "integer"
+    },
+    "imageHeight": {
+      "type": "integer"
+    }
+  }
+}

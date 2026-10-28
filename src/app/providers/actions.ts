@@ -14,6 +14,7 @@ import { listProviderTiers, type NexusProviderTier } from '@/lib/nexus/providerT
 import { autocompleteAddress, type AddressPrediction } from '@/lib/nexus/geocode';
 import { fetchProviderWalletHistory, payoutProviderWallet, type NexusWalletHistory } from '@/lib/nexus/wallet';
 import { logAudit } from '@/lib/audit/log';
+import { updateProviderSignup, type NexusProviderSignup, type ProviderSignupStatus } from '@/lib/nexus/providerSignups';
 
 function providerLabel(p: { firstName: string | null; lastName: string | null; phoneNo: string }): string {
   return [p.firstName, p.lastName].filter(Boolean).join(' ') || p.phoneNo;
@@ -31,6 +32,8 @@ export async function createProviderAction(input: ProviderInput): Promise<NexusP
   const provider = await createProvider(input);
   revalidatePath('/providers');
   updateTag('providers');
+  // nexus closes out any pending "Join Serwise" request for this phone number
+  updateTag('provider-signups');
   await logAudit({ module: 'provider', action: 'CREATE', entityId: provider.id, entityLabel: providerLabel(provider), after: { ...provider } });
   return provider;
 }
@@ -53,6 +56,23 @@ export async function updateProviderAction(
     after: { ...provider },
   });
   return provider;
+}
+
+export async function setProviderSignupStatusAction(
+  request: Pick<NexusProviderSignup, 'id' | 'firstName' | 'lastName' | 'phoneNo' | 'status'>,
+  status: ProviderSignupStatus,
+): Promise<NexusProviderSignup> {
+  const updated = await updateProviderSignup(request.id, { status });
+  revalidatePath('/providers');
+  updateTag('provider-signups');
+  await logAudit({
+    module: 'provider-signup',
+    action: 'UPDATE',
+    entityId: request.id,
+    entityLabel: [request.firstName, request.lastName].filter(Boolean).join(' ') || request.phoneNo,
+    changes: { status: { old: request.status, new: status } },
+  });
+  return updated;
 }
 
 export async function searchAddressAction(query: string): Promise<AddressPrediction[]> {

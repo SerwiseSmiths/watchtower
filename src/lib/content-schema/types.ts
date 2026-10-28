@@ -20,6 +20,8 @@ export interface ScalarField {
   max?: number;
   enum?: string[];
   targetField?: string;
+  /** Presentation hint for editors — `color` = Strapi's color-picker custom field (stored as a hex string). */
+  format?: 'color';
 }
 
 export interface MediaField {

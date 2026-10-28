@@ -23,6 +23,12 @@ export async function autocompleteAddress(input: string): Promise<AddressPredict
   return body.data?.predictions ?? [];
 }
 
+export async function fetchPlaceDetails(placeId: string): Promise<AddressPrediction | null> {
+  const res = await nexusFetch(`/address/place-details?placeId=${encodeURIComponent(placeId)}`);
+  const body = await res.json();
+  return body.data?.prediction ?? null;
+}
+
 export async function reverseGeocodeAddress(lat: number, lng: number): Promise<AddressPrediction | null> {
   const res = await nexusFetch(`/address/reverse-geocode?lat=${lat}&lng=${lng}`);
   const body = await res.json();

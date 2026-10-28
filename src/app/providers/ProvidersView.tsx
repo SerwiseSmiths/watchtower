@@ -4,8 +4,12 @@ import { useMemo, useState, type CSSProperties } from 'react';
 import { dmSans } from '../tickets/fonts';
 import { ChevronRightIcon } from '../tickets/icons';
 import { formatCurrency, type ProviderRow } from './mapProvider';
-import ProviderDrawer from './ProviderDrawer';
+import ProviderDrawer, { type ProviderPrefill } from './ProviderDrawer';
+import JoinRequests from './JoinRequests';
 import RootSidebar from '@/components/RootSidebar';
+import type { NexusProviderSignup } from '@/lib/nexus/providerSignups';
+
+type Tab = 'providers' | 'requests';
 
 function Avatar({ initials, photo }: { initials: string; photo: string | null }) {
   if (photo) {
@@ -24,13 +28,24 @@ function Avatar({ initials, photo }: { initials: string; photo: string | null })
   );
 }
 
-export default function ProvidersView({ providers }: { providers: ProviderRow[] }) {
+export default function ProvidersView({
+  providers,
+  signupRequests,
+}: {
+  providers: ProviderRow[];
+  /** "Join Serwise" requests from the website; null if nexus couldn't be reached */
+  signupRequests: NexusProviderSignup[] | null;
+}) {
   const labelStyle: CSSProperties = { fontSize: 10, fontWeight: 600, letterSpacing: '-0.03em', color: '#B7B7B7' };
   const cellStyle: CSSProperties = { fontSize: 12, fontWeight: 600, letterSpacing: '-0.03em', color: '#000000' };
 
+  const [tab, setTab] = useState<Tab>('providers');
   const [query, setQuery] = useState('');
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [prefill, setPrefill] = useState<ProviderPrefill | null>(null);
+
+  const pendingCount = signupRequests?.filter((r) => r.status === 'PENDING').length ?? 0;
 
   const filtered = useMemo(() => {
     const normalized = query.trim().toLowerCase();
@@ -45,13 +60,40 @@ export default function ProvidersView({ providers }: { providers: ProviderRow[] 
 
   function openCreate() {
     setEditingId(null);
+    setPrefill(null);
     setDrawerOpen(true);
   }
 
   function openEdit(id: string) {
     setEditingId(id);
+    setPrefill(null);
     setDrawerOpen(true);
   }
+
+  // Saving this provider makes nexus mark the request APPROVED (matched by phone)
+  function createFromRequest(r: NexusProviderSignup) {
+    setEditingId(null);
+    setPrefill({
+      firstName: r.firstName,
+      lastName: r.lastName,
+      phoneNo: r.phoneNo,
+      skills: r.deviceTypes,
+      city: r.city,
+      adminNotes: `Joined via website request${r.experienceYears != null ? ` · ${r.experienceYears} yrs experience` : ''}`,
+    });
+    setDrawerOpen(true);
+  }
+
+  const tabStyle = (active: boolean): CSSProperties => ({
+    background: 'none',
+    border: 'none',
+    padding: '0 0 8px',
+    fontSize: 14,
+    fontWeight: 700,
+    letterSpacing: '-0.03em',
+    color: active ? '#181818' : '#B7B7B7',
+    borderBottom: `2px solid ${active ? '#181818' : 'transparent'}`,
+  });
 
   return (
     <div className={dmSans.className} style={{ minHeight: '100vh', minWidth: 'fit-content', background: '#F2F2F2', display: 'flex' }}>
@@ -62,6 +104,24 @@ export default function ProvidersView({ providers }: { providers: ProviderRow[] 
           Providers
         </h1>
 
+        <div className="d-flex mb-3" style={{ gap: 24, borderBottom: '1px solid #E5E5E5' }}>
+          <button type="button" style={tabStyle(tab === 'providers')} onClick={() => setTab('providers')}>
+            Providers
+          </button>
+          <button type="button" className="d-flex align-items-center" style={{ ...tabStyle(tab === 'requests'), gap: 6 }} onClick={() => setTab('requests')}>
+            Join Requests
+            {pendingCount > 0 && (
+              <span style={{ background: '#E53935', color: '#FFFFFF', borderRadius: 10, padding: '1px 7px', fontSize: 10, fontWeight: 700 }}>
+                {pendingCount}
+              </span>
+            )}
+          </button>
+        </div>
+
+        {tab === 'requests' ? (
+          <JoinRequests requests={signupRequests} onCreateProvider={createFromRequest} onOpenProvider={openEdit} />
+        ) : (
+        <>
         <div className="d-flex justify-content-between align-items-center mb-3">
           <div
             className="d-flex align-items-center"
@@ -156,9 +216,11 @@ export default function ProvidersView({ providers }: { providers: ProviderRow[] 
             </div>
           ))}
         </div>
+        </>
+        )}
       </main>
 
-      <ProviderDrawer open={drawerOpen} providerId={editingId} onClose={() => setDrawerOpen(false)} />
+      <ProviderDrawer open={drawerOpen} providerId={editingId} prefill={prefill} onClose={() => setDrawerOpen(false)} />
     </div>
   );
 }

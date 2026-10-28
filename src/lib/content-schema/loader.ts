@@ -9,6 +9,8 @@ import servicePartRaw from '../../../content-schemas/api/service-part/content-ty
 import subscriptionAddonRaw from '../../../content-schemas/api/subscription-addon/content-types/subscription-addon/schema.json';
 import subscriptionPlanRaw from '../../../content-schemas/api/subscription-plan/content-types/subscription-plan/schema.json';
 import welcomeBonusRaw from '../../../content-schemas/api/welcome-bonus/content-types/welcome-bonus/schema.json';
+import webPageRaw from '../../../content-schemas/api/web-page/content-types/web-page/schema.json';
+import loginRaw from '../../../content-schemas/api/login/content-types/login/schema.json';
 
 import advertisementRaw from '../../../content-schemas/components/blocks/advertisement.json';
 import heroGridItemRaw from '../../../content-schemas/components/blocks/hero-grid-item.json';
@@ -26,6 +28,24 @@ import configEntryRaw from '../../../content-schemas/components/shared/config-en
 import tabItemRaw from '../../../content-schemas/components/shared/tab-item.json';
 import planFeatureRaw from '../../../content-schemas/components/subscription/plan-feature.json';
 import visitServiceRaw from '../../../content-schemas/components/subscription/visit-service.json';
+// Website CMS (web-page / login) — style pieces, items, then page blocks
+import webSectionStyleRaw from '../../../content-schemas/components/web/section-style.json';
+import webTextStyleRaw from '../../../content-schemas/components/web/text-style.json';
+import webButtonRaw from '../../../content-schemas/components/web/button.json';
+import webLinkRaw from '../../../content-schemas/components/web/link.json';
+import webDrawerStyleRaw from '../../../content-schemas/components/web/drawer-style.json';
+import webServiceCardRaw from '../../../content-schemas/components/web/service-card.json';
+import webFeatureCardRaw from '../../../content-schemas/components/web/feature-card.json';
+import webCityRaw from '../../../content-schemas/components/web/city.json';
+import webHeaderRaw from '../../../content-schemas/components/web/header.json';
+import webHeroRaw from '../../../content-schemas/components/web/hero.json';
+import webServicesGridRaw from '../../../content-schemas/components/web/services-grid.json';
+import webFeatureGridRaw from '../../../content-schemas/components/web/feature-grid.json';
+import webAppPromoRaw from '../../../content-schemas/components/web/app-promo.json';
+import webSupportRaw from '../../../content-schemas/components/web/support.json';
+import webCounterRaw from '../../../content-schemas/components/web/counter.json';
+import webHelpCtaRaw from '../../../content-schemas/components/web/help-cta.json';
+import webFooterRaw from '../../../content-schemas/components/web/footer.json';
 
 interface RawAttribute {
   type: string;
@@ -45,7 +65,11 @@ interface RawAttribute {
   target?: string;
   mappedBy?: string;
   inversedBy?: string;
+  customField?: string;
 }
+
+/** Strapi's built-in color-picker custom field — a plain string column holding a hex color. */
+const COLOR_CUSTOM_FIELD = 'plugin::color-picker.color';
 
 interface RawSchema {
   kind?: 'collectionType' | 'singleType';
@@ -80,6 +104,11 @@ function toFieldSchema(raw: RawAttribute): FieldSchema {
         mappedBy: raw.mappedBy,
         inversedBy: raw.inversedBy,
       };
+    case 'customField':
+      if (raw.customField !== COLOR_CUSTOM_FIELD) {
+        throw new Error(`Unsupported custom field: ${raw.customField}`);
+      }
+      return { kind: 'scalar', type: 'string', required: raw.required, default: raw.default, format: 'color' };
     default:
       if (!SCALAR_TYPES.has(raw.type)) {
         throw new Error(`Unknown attribute type: ${raw.type}`);
@@ -148,6 +177,8 @@ export const contentTypeSchemas: ContentTypeSchema[] = [
   toContentTypeSchema(subscriptionAddonRaw as RawSchema),
   toContentTypeSchema(subscriptionPlanRaw as RawSchema),
   toContentTypeSchema(welcomeBonusRaw as RawSchema),
+  toContentTypeSchema(webPageRaw as RawSchema),
+  toContentTypeSchema(loginRaw as RawSchema),
 ];
 
 export const componentSchemas: ComponentSchema[] = [
@@ -167,4 +198,21 @@ export const componentSchemas: ComponentSchema[] = [
   toComponentSchema('shared.tab-item', tabItemRaw as RawComponentSchema),
   toComponentSchema('subscription.plan-feature', planFeatureRaw as RawComponentSchema),
   toComponentSchema('subscription.visit-service', visitServiceRaw as RawComponentSchema),
+  toComponentSchema('web.section-style', webSectionStyleRaw as RawComponentSchema),
+  toComponentSchema('web.text-style', webTextStyleRaw as RawComponentSchema),
+  toComponentSchema('web.button', webButtonRaw as RawComponentSchema),
+  toComponentSchema('web.link', webLinkRaw as RawComponentSchema),
+  toComponentSchema('web.drawer-style', webDrawerStyleRaw as RawComponentSchema),
+  toComponentSchema('web.service-card', webServiceCardRaw as RawComponentSchema),
+  toComponentSchema('web.feature-card', webFeatureCardRaw as RawComponentSchema),
+  toComponentSchema('web.city', webCityRaw as RawComponentSchema),
+  toComponentSchema('web.header', webHeaderRaw as RawComponentSchema),
+  toComponentSchema('web.hero', webHeroRaw as RawComponentSchema),
+  toComponentSchema('web.services-grid', webServicesGridRaw as RawComponentSchema),
+  toComponentSchema('web.feature-grid', webFeatureGridRaw as RawComponentSchema),
+  toComponentSchema('web.app-promo', webAppPromoRaw as RawComponentSchema),
+  toComponentSchema('web.support', webSupportRaw as RawComponentSchema),
+  toComponentSchema('web.counter', webCounterRaw as RawComponentSchema),
+  toComponentSchema('web.help-cta', webHelpCtaRaw as RawComponentSchema),
+  toComponentSchema('web.footer', webFooterRaw as RawComponentSchema),
 ];

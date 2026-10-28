@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, useState, type ChangeEvent, type CSSProperties } from 'react';
+import { useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { dmSans } from '../tickets/fonts';
 import RootSidebar from '@/components/RootSidebar';
@@ -12,92 +12,26 @@ import {
   createPageAction,
   updatePageAction,
   deletePageAction,
-  uploadCmsImageAction,
 } from './actions';
+import {
+  ImageField,
+  RemoveRowButton,
+  RepeaterHeader,
+  SaveButton,
+  cellStyle,
+  ctaButtonStyle,
+  fieldLabelStyle,
+  inputStyle,
+  labelStyle,
+  type MediaFile,
+} from './ui';
+import { LoginTab, WebPagesTab, type WebPageRow } from './WebContentTabs';
 
-// ─── Shared primitives (same conventions as pricing/PricingView.tsx, device-types) ────
-
-export interface MediaFile {
-  id: number;
-  url: string;
-  name?: string | null;
-}
+export type { MediaFile };
 
 export interface DeviceTypeOption {
   id: number;
   name: string;
-}
-
-const inputStyle: CSSProperties = {
-  width: '100%',
-  background: '#EFEFEF',
-  border: '1px solid #E5E5E5',
-  borderRadius: 6,
-  padding: '11px',
-  fontSize: 14,
-  fontWeight: 600,
-  letterSpacing: '-0.03em',
-  color: '#000000',
-  outline: 'none',
-};
-const fieldLabelStyle: CSSProperties = { fontSize: 12, fontWeight: 600, letterSpacing: '-0.03em', color: '#454545', marginBottom: 4 };
-const labelStyle: CSSProperties = { fontSize: 10, fontWeight: 600, letterSpacing: '-0.03em', color: '#B7B7B7' };
-const cellStyle: CSSProperties = { fontSize: 12, fontWeight: 600, letterSpacing: '-0.03em', color: '#000000' };
-
-function ctaButtonStyle(color: string): CSSProperties {
-  return { background: color, color: '#FFFFFF', border: 'none', borderRadius: 5, padding: '6px 14px', fontSize: 11, fontWeight: 600, letterSpacing: '-0.03em' };
-}
-
-function ImageField({ label, value, onChange }: { label: string; value: MediaFile | null; onChange: (file: MediaFile | null) => void }) {
-  const inputRef = useRef<HTMLInputElement>(null);
-  const [uploading, setUploading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  async function handleFile(e: ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    e.target.value = '';
-    if (!file) return;
-    setUploading(true);
-    setError(null);
-    try {
-      const formData = new FormData();
-      formData.set('file', file);
-      const uploaded = await uploadCmsImageAction(formData);
-      onChange(uploaded);
-    } catch {
-      setError('Upload failed — please try again.');
-    } finally {
-      setUploading(false);
-    }
-  }
-
-  return (
-    <div>
-      <div style={fieldLabelStyle}>{label}</div>
-      <div className="d-flex align-items-center" style={{ gap: 10 }}>
-        <div className="d-flex align-items-center justify-content-center" style={{ width: 56, height: 56, borderRadius: 6, background: '#EFEFEF', border: '1px solid #E5E5E5', overflow: 'hidden', flexShrink: 0 }}>
-          {value ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={value.url} alt={value.name ?? label} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-          ) : (
-            <span style={{ fontSize: 9, fontWeight: 600, color: '#B7B7B7' }}>None</span>
-          )}
-        </div>
-        <div className="d-flex flex-column" style={{ gap: 4 }}>
-          <button type="button" disabled={uploading} onClick={() => inputRef.current?.click()} style={{ background: '#181818', color: '#FFFFFF', border: 'none', borderRadius: 5, padding: '6px 12px', fontSize: 11, fontWeight: 600, opacity: uploading ? 0.6 : 1 }}>
-            {uploading ? 'Uploading…' : value ? 'Change' : 'Upload'}
-          </button>
-          {value && (
-            <button type="button" onClick={() => onChange(null)} style={{ background: 'transparent', border: 'none', color: '#B7B7B7', fontSize: 11, fontWeight: 600, padding: 0, textAlign: 'left' }}>
-              Remove
-            </button>
-          )}
-        </div>
-        <input ref={inputRef} type="file" accept="image/*" onChange={handleFile} style={{ display: 'none' }} />
-      </div>
-      {error && <div style={{ fontSize: 10, color: '#FF5E5E', fontWeight: 600, marginTop: 4 }}>{error}</div>}
-    </div>
-  );
 }
 
 function RelationChecklist({ label, options, selectedIds, onChange }: { label: string; options: DeviceTypeOption[]; selectedIds: number[]; onChange: (ids: number[]) => void }) {
@@ -117,33 +51,6 @@ function RelationChecklist({ label, options, selectedIds, onChange }: { label: s
         ))}
       </div>
     </div>
-  );
-}
-
-function SaveButton({ saving, onClick }: { saving: boolean; onClick: () => void }) {
-  return (
-    <button type="button" onClick={onClick} disabled={saving} className="w-100" style={{ background: '#181818', color: '#FFFFFF', border: 'none', borderRadius: 6, padding: '13px', fontSize: 14, fontWeight: 600, letterSpacing: '-0.03em', opacity: saving ? 0.6 : 1 }}>
-      {saving ? 'Saving…' : 'Save'}
-    </button>
-  );
-}
-
-function RepeaterHeader({ label, onAdd, addLabel }: { label: string; onAdd: () => void; addLabel: string }) {
-  return (
-    <div className="d-flex justify-content-between align-items-center mb-2">
-      <span style={fieldLabelStyle}>{label}</span>
-      <button type="button" onClick={onAdd} style={{ background: '#EFEFEF', border: '1px solid #E5E5E5', borderRadius: 6, padding: '4px 10px', fontSize: 11, fontWeight: 600, color: '#181818' }}>
-        {addLabel}
-      </button>
-    </div>
-  );
-}
-
-function RemoveRowButton({ onClick }: { onClick: () => void }) {
-  return (
-    <button type="button" onClick={onClick} style={{ background: 'transparent', border: 'none', color: '#E53935', fontSize: 12, fontWeight: 600 }}>
-      Remove
-    </button>
   );
 }
 
@@ -895,7 +802,7 @@ function PagesTab({ pages, deviceTypeOptions }: { pages: PageRow[]; deviceTypeOp
 
 // ─── Root ───────────────────────────────────────────────────────────────────
 
-type Tab = 'bottom-tab' | 'complaint-page' | 'global-config' | 'welcome-bonus' | 'pages';
+type Tab = 'bottom-tab' | 'complaint-page' | 'global-config' | 'welcome-bonus' | 'pages' | 'web-pages' | 'login';
 
 export default function CmsView({
   bottomTab,
@@ -904,7 +811,11 @@ export default function CmsView({
   welcomeBonus,
   pages,
   deviceTypeOptions,
+  webPages,
+  login,
 }: {
+  webPages: WebPageRow[];
+  login: Record<string, unknown> | null;
   bottomTab: { tabs?: (Partial<TabItem> & { inactiveIcon?: MediaFile | null; activeIcon?: MediaFile | null })[] } | null;
   complaintPage: { advertisement?: Partial<AdvertisementForm> | null; resolutionSteps?: Partial<ResolutionStep>[]; infoBlocks?: Partial<InfoBlock>[] } | null;
   globalConfig: { entries?: ConfigEntry[] } | null;
@@ -921,6 +832,8 @@ export default function CmsView({
     'global-config': 'Global Config',
     'welcome-bonus': 'Welcome Bonus',
     pages: 'Pages',
+    'web-pages': 'Web Pages',
+    login: 'Website Login',
   };
 
   return (
@@ -934,6 +847,8 @@ export default function CmsView({
         {tab === 'global-config' && <GlobalConfigTab globalConfig={globalConfig} />}
         {tab === 'welcome-bonus' && <WelcomeBonusTab welcomeBonus={welcomeBonus} />}
         {tab === 'pages' && <PagesTab pages={pages} deviceTypeOptions={deviceTypeOptions} />}
+        {tab === 'web-pages' && <WebPagesTab pages={webPages} />}
+        {tab === 'login' && <LoginTab login={login} />}
       </main>
     </div>
   );

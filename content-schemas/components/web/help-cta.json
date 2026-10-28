@@ -1,0 +1,46 @@
+{
+  "collectionName": "components_web_help_ctas",
+  "info": {
+    "displayName": "Help CTA",
+    "description": "'Help is just a tap away!' with Book Now and available cities"
+  },
+  "options": {},
+  "attributes": {
+    "title": {
+      "type": "string"
+    },
+    "titleStyle": {
+      "type": "component",
+      "repeatable": false,
+      "component": "web.text-style"
+    },
+    "button": {
+      "type": "component",
+      "repeatable": false,
+      "component": "web.button"
+    },
+    "citiesLabel": {
+      "type": "string"
+    },
+    "citiesLabelStyle": {
+      "type": "component",
+      "repeatable": false,
+      "component": "web.text-style"
+    },
+    "cities": {
+      "type": "component",
+      "repeatable": true,
+      "component": "web.city"
+    },
+    "cityStyle": {
+      "type": "component",
+      "repeatable": false,
+      "component": "web.text-style"
+    },
+    "style": {
+      "type": "component",
+      "repeatable": false,
+      "component": "web.section-style"
+    }
+  }
+}

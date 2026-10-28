@@ -5,6 +5,7 @@ import { cmpsTableName, getComponent, getContentType, getRelationTable, toColumn
 import type { ContentTypeSchema, FieldSchema } from '../content-schema/types';
 import { logAudit } from '@/lib/audit/log';
 import { notifyNexusCacheInvalidation } from '@/lib/nexus/cache-invalidation';
+import { notifyWebsiteRevalidation } from '@/lib/website/revalidate';
 
 type Row = Record<string, unknown>;
 type PrismaModel = {
@@ -770,6 +771,7 @@ export async function createEntity(contentTypeUid: string, data: Row) {
   });
   revalidateTag(contentTag(contentTypeUid), { expire: CONTENT_CACHE_SECONDS });
   notifyNexusCacheInvalidation(contentTypeUid);
+  notifyWebsiteRevalidation(contentTypeUid);
   return created;
 }
 
@@ -790,6 +792,7 @@ export async function updateEntity(contentTypeUid: string, id: number, data: Row
   });
   revalidateTag(contentTag(contentTypeUid), { expire: CONTENT_CACHE_SECONDS });
   notifyNexusCacheInvalidation(contentTypeUid);
+  notifyWebsiteRevalidation(contentTypeUid);
   return after;
 }
 
@@ -861,6 +864,7 @@ export async function deleteEntity(contentTypeUid: string, id: number) {
   });
   revalidateTag(contentTag(contentTypeUid), { expire: CONTENT_CACHE_SECONDS });
   notifyNexusCacheInvalidation(contentTypeUid);
+  notifyWebsiteRevalidation(contentTypeUid);
 }
 
 /**
@@ -906,6 +910,7 @@ export async function publishEntity(contentTypeUid: string, draftId: number) {
   await writeNestedFields(schema.uid, schema.collectionName, publishedId, schema.attributes, draft);
   revalidateTag(contentTag(contentTypeUid), { expire: CONTENT_CACHE_SECONDS });
   notifyNexusCacheInvalidation(contentTypeUid);
+  notifyWebsiteRevalidation(contentTypeUid);
   return findEntityById(contentTypeUid, publishedId);
 }
 

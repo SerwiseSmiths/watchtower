@@ -103,6 +103,8 @@ model admin_users {
   global_configs_global_configs_updated_by_idToadmin_users                                       global_configs[]                    @relation("global_configs_updated_by_idToadmin_users")
   i18n_locale_i18n_locale_created_by_idToadmin_users                                             i18n_locale[]                       @relation("i18n_locale_created_by_idToadmin_users")
   i18n_locale_i18n_locale_updated_by_idToadmin_users                                             i18n_locale[]                       @relation("i18n_locale_updated_by_idToadmin_users")
+  logins_logins_created_by_idToadmin_users                                                       logins[]                            @relation("logins_created_by_idToadmin_users")
+  logins_logins_updated_by_idToadmin_users                                                       logins[]                            @relation("logins_updated_by_idToadmin_users")
   pages_pages_created_by_idToadmin_users                                                         pages[]                             @relation("pages_created_by_idToadmin_users")
   pages_pages_updated_by_idToadmin_users                                                         pages[]                             @relation("pages_updated_by_idToadmin_users")
   service_parts_service_parts_created_by_idToadmin_users                                         service_parts[]                     @relation("service_parts_created_by_idToadmin_users")
@@ -140,6 +142,8 @@ model admin_users {
   upload_folders_upload_folders_updated_by_idToadmin_users                                       upload_folders[]                    @relation("upload_folders_updated_by_idToadmin_users")
   watchtower_audit_logs                                                                          watchtower_audit_logs[]
   watchtower_root_operator                                                                       watchtower_root_operators?
+  web_pages_web_pages_created_by_idToadmin_users                                                 web_pages[]                         @relation("web_pages_created_by_idToadmin_users")
+  web_pages_web_pages_updated_by_idToadmin_users                                                 web_pages[]                         @relation("web_pages_updated_by_idToadmin_users")
   welcome_bonus_welcome_bonus_created_by_idToadmin_users                                         welcome_bonus[]                     @relation("welcome_bonus_created_by_idToadmin_users")
   welcome_bonus_welcome_bonus_updated_by_idToadmin_users                                         welcome_bonus[]                     @relation("welcome_bonus_updated_by_idToadmin_users")
 
@@ -1195,4 +1199,383 @@ model watchtower_audit_logs {
   @@index([created_at(sort: Desc)], map: "watchtower_audit_logs_created_idx")
   @@index([entity_id], map: "watchtower_audit_logs_entity_idx")
   @@index([module])
+}
+
+model components_web_app_promos {
+  id                             Int                              @id @default(autoincrement())
+  lead                           String?
+  tagline_top                    String?                          @db.VarChar(255)
+  tagline_bottom                 String?                          @db.VarChar(255)
+  arc_color_from                 String?                          @db.VarChar(255)
+  arc_color_to                   String?                          @db.VarChar(255)
+  qr_label                       String?                          @db.VarChar(255)
+  qr_link                        String?                          @db.VarChar(255)
+  qr_card_background             String?                          @db.VarChar(255)
+  components_web_app_promos_cmps components_web_app_promos_cmps[]
+}
+
+model components_web_app_promos_cmps {
+  id                        Int                        @id @default(autoincrement())
+  entity_id                 Int?
+  cmp_id                    Int?
+  component_type            String?                    @db.VarChar(255)
+  field                     String?                    @db.VarChar(255)
+  order                     Float?
+  components_web_app_promos components_web_app_promos? @relation(fields: [entity_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "components_web_app_promos_entity_fk")
+
+  @@unique([entity_id, cmp_id, field, component_type], map: "components_web_app_promos_uq")
+  @@index([component_type], map: "components_web_app_promos_component_type_idx")
+  @@index([field], map: "components_web_app_promos_field_idx")
+}
+
+model components_web_buttons {
+  id               Int      @id @default(autoincrement())
+  label            String?  @db.VarChar(255)
+  action           String?  @db.VarChar(255)
+  href             String?  @db.VarChar(255)
+  open_in_new_tab  Boolean?
+  variant          String?  @db.VarChar(255)
+  background_color String?  @db.VarChar(255)
+  text_color       String?  @db.VarChar(255)
+  border_color     String?  @db.VarChar(255)
+  border_radius    Int?
+  font_size        Decimal? @db.Decimal(10, 2)
+}
+
+model components_web_cities {
+  id   Int     @id @default(autoincrement())
+  name String? @db.VarChar(255)
+}
+
+model components_web_counters {
+  id                           Int                            @id @default(autoincrement())
+  label                        String?                        @db.VarChar(255)
+  value                        String?                        @db.VarChar(255)
+  animate                      Boolean?
+  digit_color                  String?                        @db.VarChar(255)
+  components_web_counters_cmps components_web_counters_cmps[]
+}
+
+model components_web_counters_cmps {
+  id                      Int                      @id @default(autoincrement())
+  entity_id               Int?
+  cmp_id                  Int?
+  component_type          String?                  @db.VarChar(255)
+  field                   String?                  @db.VarChar(255)
+  order                   Float?
+  components_web_counters components_web_counters? @relation(fields: [entity_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "components_web_counters_entity_fk")
+
+  @@unique([entity_id, cmp_id, field, component_type], map: "components_web_counters_uq")
+  @@index([component_type], map: "components_web_counters_component_type_idx")
+  @@index([field], map: "components_web_counters_field_idx")
+}
+
+model components_web_drawer_styles {
+  id                   Int      @id @default(autoincrement())
+  panel_background     String?  @db.VarChar(255)
+  backdrop_color       String?  @db.VarChar(255)
+  title_color          String?  @db.VarChar(255)
+  title_size           Decimal? @db.Decimal(10, 2)
+  text_color           String?  @db.VarChar(255)
+  muted_color          String?  @db.VarChar(255)
+  input_background     String?  @db.VarChar(255)
+  input_border_color   String?  @db.VarChar(255)
+  accent_color         String?  @db.VarChar(255)
+  button_gradient_from String?  @db.VarChar(255)
+  button_gradient_to   String?  @db.VarChar(255)
+  button_text_color    String?  @db.VarChar(255)
+  border_radius        Int?
+}
+
+model components_web_feature_cards {
+  id           Int     @id @default(autoincrement())
+  title        String? @db.VarChar(255)
+  description  String?
+  illustration String? @db.VarChar(255)
+  image_width  Int?
+  image_height Int?
+}
+
+model components_web_feature_grids {
+  id                                Int                                 @id @default(autoincrement())
+  heading                           String?                             @db.VarChar(255)
+  card_background                   String?                             @db.VarChar(255)
+  components_web_feature_grids_cmps components_web_feature_grids_cmps[]
+}
+
+model components_web_feature_grids_cmps {
+  id                           Int                           @id @default(autoincrement())
+  entity_id                    Int?
+  cmp_id                       Int?
+  component_type               String?                       @db.VarChar(255)
+  field                        String?                       @db.VarChar(255)
+  order                        Float?
+  components_web_feature_grids components_web_feature_grids? @relation(fields: [entity_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "components_web_feature_grids_entity_fk")
+
+  @@unique([entity_id, cmp_id, field, component_type], map: "components_web_feature_grids_uq")
+  @@index([component_type], map: "components_web_feature_grids_component_type_idx")
+  @@index([field], map: "components_web_feature_grids_field_idx")
+}
+
+model components_web_footers {
+  id                          Int                           @id @default(autoincrement())
+  components_web_footers_cmps components_web_footers_cmps[]
+}
+
+model components_web_footers_cmps {
+  id                     Int                     @id @default(autoincrement())
+  entity_id              Int?
+  cmp_id                 Int?
+  component_type         String?                 @db.VarChar(255)
+  field                  String?                 @db.VarChar(255)
+  order                  Float?
+  components_web_footers components_web_footers? @relation(fields: [entity_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "components_web_footers_entity_fk")
+
+  @@unique([entity_id, cmp_id, field, component_type], map: "components_web_footers_uq")
+  @@index([component_type], map: "components_web_footers_component_type_idx")
+  @@index([field], map: "components_web_footers_field_idx")
+}
+
+model components_web_headers {
+  id                          Int                           @id @default(autoincrement())
+  components_web_headers_cmps components_web_headers_cmps[]
+}
+
+model components_web_headers_cmps {
+  id                     Int                     @id @default(autoincrement())
+  entity_id              Int?
+  cmp_id                 Int?
+  component_type         String?                 @db.VarChar(255)
+  field                  String?                 @db.VarChar(255)
+  order                  Float?
+  components_web_headers components_web_headers? @relation(fields: [entity_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "components_web_headers_entity_fk")
+
+  @@unique([entity_id, cmp_id, field, component_type], map: "components_web_headers_uq")
+  @@index([component_type], map: "components_web_headers_component_type_idx")
+  @@index([field], map: "components_web_headers_field_idx")
+}
+
+model components_web_help_ctas {
+  id                            Int                             @id @default(autoincrement())
+  title                         String?                         @db.VarChar(255)
+  cities_label                  String?                         @db.VarChar(255)
+  components_web_help_ctas_cmps components_web_help_ctas_cmps[]
+}
+
+model components_web_help_ctas_cmps {
+  id                       Int                       @id @default(autoincrement())
+  entity_id                Int?
+  cmp_id                   Int?
+  component_type           String?                   @db.VarChar(255)
+  field                    String?                   @db.VarChar(255)
+  order                    Float?
+  components_web_help_ctas components_web_help_ctas? @relation(fields: [entity_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "components_web_help_ctas_entity_fk")
+
+  @@unique([entity_id, cmp_id, field, component_type], map: "components_web_help_ctas_uq")
+  @@index([component_type], map: "components_web_help_ctas_component_type_idx")
+  @@index([field], map: "components_web_help_ctas_field_idx")
+}
+
+model components_web_heroes {
+  id                         Int                          @id @default(autoincrement())
+  title                      String?                      @db.VarChar(255)
+  subtitle                   String?
+  service_label              String?                      @db.VarChar(255)
+  service_placeholder        String?                      @db.VarChar(255)
+  address_label              String?                      @db.VarChar(255)
+  address_placeholder        String?                      @db.VarChar(255)
+  search_background          String?                      @db.VarChar(255)
+  components_web_heroes_cmps components_web_heroes_cmps[]
+}
+
+model components_web_heroes_cmps {
+  id                    Int                    @id @default(autoincrement())
+  entity_id             Int?
+  cmp_id                Int?
+  component_type        String?                @db.VarChar(255)
+  field                 String?                @db.VarChar(255)
+  order                 Float?
+  components_web_heroes components_web_heroes? @relation(fields: [entity_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "components_web_heroes_entity_fk")
+
+  @@unique([entity_id, cmp_id, field, component_type], map: "components_web_heroes_uq")
+  @@index([component_type], map: "components_web_heroes_component_type_idx")
+  @@index([field], map: "components_web_heroes_field_idx")
+}
+
+model components_web_links {
+  id              Int      @id @default(autoincrement())
+  label           String?  @db.VarChar(255)
+  action          String?  @db.VarChar(255)
+  href            String?  @db.VarChar(255)
+  open_in_new_tab Boolean?
+}
+
+model components_web_section_styles {
+  id                    Int      @id @default(autoincrement())
+  background_color      String?  @db.VarChar(255)
+  gradient_from         String?  @db.VarChar(255)
+  gradient_to           String?  @db.VarChar(255)
+  gradient_angle        Int?
+  padding_top           Int?
+  padding_bottom        Int?
+  padding_top_mobile    Int?
+  padding_bottom_mobile Int?
+  max_width             Int?
+  text_align            String?  @db.VarChar(255)
+  hidden                Boolean?
+  anchor_id             String?  @db.VarChar(255)
+}
+
+model components_web_service_cards {
+  id             Int     @id @default(autoincrement())
+  appliance      String? @db.VarChar(255)
+  title          String? @db.VarChar(255)
+  dropdown_label String? @db.VarChar(255)
+  description    String?
+  image_width    Int?
+  image_height   Int?
+  cta_label      String? @db.VarChar(255)
+  cta_action     String? @db.VarChar(255)
+  cta_href       String? @db.VarChar(255)
+}
+
+model components_web_services_grids {
+  id                                 Int                                  @id @default(autoincrement())
+  heading                            String?                              @db.VarChar(255)
+  card_background                    String?                              @db.VarChar(255)
+  coming_soon_title                  String?                              @db.VarChar(255)
+  coming_soon_description            String?
+  components_web_services_grids_cmps components_web_services_grids_cmps[]
+}
+
+model components_web_services_grids_cmps {
+  id                            Int                            @id @default(autoincrement())
+  entity_id                     Int?
+  cmp_id                        Int?
+  component_type                String?                        @db.VarChar(255)
+  field                         String?                        @db.VarChar(255)
+  order                         Float?
+  components_web_services_grids components_web_services_grids? @relation(fields: [entity_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "components_web_services_grids_entity_fk")
+
+  @@unique([entity_id, cmp_id, field, component_type], map: "components_web_services_grids_uq")
+  @@index([component_type], map: "components_web_services_grids_component_type_idx")
+  @@index([field], map: "components_web_services_grids_field_idx")
+}
+
+model components_web_supports {
+  id                           Int                            @id @default(autoincrement())
+  eyebrow                      String?                        @db.VarChar(255)
+  phone_number                 String?                        @db.VarChar(255)
+  description                  String?
+  components_web_supports_cmps components_web_supports_cmps[]
+}
+
+model components_web_supports_cmps {
+  id                      Int                      @id @default(autoincrement())
+  entity_id               Int?
+  cmp_id                  Int?
+  component_type          String?                  @db.VarChar(255)
+  field                   String?                  @db.VarChar(255)
+  order                   Float?
+  components_web_supports components_web_supports? @relation(fields: [entity_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "components_web_supports_entity_fk")
+
+  @@unique([entity_id, cmp_id, field, component_type], map: "components_web_supports_uq")
+  @@index([component_type], map: "components_web_supports_component_type_idx")
+  @@index([field], map: "components_web_supports_field_idx")
+}
+
+model components_web_text_styles {
+  id               Int      @id @default(autoincrement())
+  color            String?  @db.VarChar(255)
+  font_size        Decimal? @db.Decimal(10, 2)
+  font_size_mobile Decimal? @db.Decimal(10, 2)
+  font_weight      String?  @db.VarChar(255)
+  line_height      Decimal? @db.Decimal(10, 2)
+  letter_spacing   Decimal? @db.Decimal(10, 2)
+  uppercase        Boolean?
+}
+
+model logins {
+  id                                            Int           @id @default(autoincrement())
+  document_id                                   String?       @db.VarChar(255)
+  phone_title                                   String?       @db.VarChar(255)
+  phone_label                                   String?       @db.VarChar(255)
+  phone_placeholder                             String?       @db.VarChar(255)
+  terms_prefix                                  String?       @db.VarChar(255)
+  terms_label                                   String?       @db.VarChar(255)
+  terms_url                                     String?       @db.VarChar(255)
+  privacy_label                                 String?       @db.VarChar(255)
+  privacy_url                                   String?       @db.VarChar(255)
+  continue_label                                String?       @db.VarChar(255)
+  otp_title                                     String?       @db.VarChar(255)
+  otp_label                                     String?       @db.VarChar(255)
+  otp_subtitle                                  String?       @db.VarChar(255)
+  resend_countdown_text                         String?       @db.VarChar(255)
+  resend_label                                  String?       @db.VarChar(255)
+  back_label                                    String?       @db.VarChar(255)
+  verify_label                                  String?       @db.VarChar(255)
+  welcome_title                                 String?       @db.VarChar(255)
+  signed_in_title                               String?       @db.VarChar(255)
+  new_user_message                              String?
+  returning_user_message                        String?
+  done_label                                    String?       @db.VarChar(255)
+  created_at                                    DateTime?     @db.Timestamp(6)
+  updated_at                                    DateTime?     @db.Timestamp(6)
+  published_at                                  DateTime?     @db.Timestamp(6)
+  created_by_id                                 Int?
+  updated_by_id                                 Int?
+  locale                                        String?       @db.VarChar(255)
+  admin_users_logins_created_by_idToadmin_users admin_users?  @relation("logins_created_by_idToadmin_users", fields: [created_by_id], references: [id], onUpdate: NoAction, map: "logins_created_by_id_fk")
+  admin_users_logins_updated_by_idToadmin_users admin_users?  @relation("logins_updated_by_idToadmin_users", fields: [updated_by_id], references: [id], onUpdate: NoAction, map: "logins_updated_by_id_fk")
+  logins_cmps                                   logins_cmps[]
+
+  @@index([document_id, locale, published_at], map: "logins_documents_idx")
+}
+
+model logins_cmps {
+  id             Int     @id @default(autoincrement())
+  entity_id      Int?
+  cmp_id         Int?
+  component_type String? @db.VarChar(255)
+  field          String? @db.VarChar(255)
+  order          Float?
+  logins         logins? @relation(fields: [entity_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "logins_entity_fk")
+
+  @@unique([entity_id, cmp_id, field, component_type], map: "logins_uq")
+  @@index([component_type], map: "logins_component_type_idx")
+  @@index([field], map: "logins_field_idx")
+}
+
+model web_pages {
+  id                                               Int              @id @default(autoincrement())
+  document_id                                      String?          @db.VarChar(255)
+  title                                            String?          @db.VarChar(255)
+  handle                                           String?          @db.VarChar(255)
+  seo_title                                        String?          @db.VarChar(255)
+  seo_description                                  String?
+  created_at                                       DateTime?        @db.Timestamp(6)
+  updated_at                                       DateTime?        @db.Timestamp(6)
+  published_at                                     DateTime?        @db.Timestamp(6)
+  created_by_id                                    Int?
+  updated_by_id                                    Int?
+  locale                                           String?          @db.VarChar(255)
+  admin_users_web_pages_created_by_idToadmin_users admin_users?     @relation("web_pages_created_by_idToadmin_users", fields: [created_by_id], references: [id], onUpdate: NoAction, map: "web_pages_created_by_id_fk")
+  admin_users_web_pages_updated_by_idToadmin_users admin_users?     @relation("web_pages_updated_by_idToadmin_users", fields: [updated_by_id], references: [id], onUpdate: NoAction, map: "web_pages_updated_by_id_fk")
+  web_pages_cmps                                   web_pages_cmps[]
+
+  @@index([document_id, locale, published_at], map: "web_pages_documents_idx")
+}
+
+model web_pages_cmps {
+  id             Int        @id @default(autoincrement())
+  entity_id      Int?
+  cmp_id         Int?
+  component_type String?    @db.VarChar(255)
+  field          String?    @db.VarChar(255)
+  order          Float?
+  web_pages      web_pages? @relation(fields: [entity_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "web_pages_entity_fk")
+
+  @@unique([entity_id, cmp_id, field, component_type], map: "web_pages_uq")
+  @@index([component_type], map: "web_pages_component_type_idx")
+  @@index([field], map: "web_pages_field_idx")
 }

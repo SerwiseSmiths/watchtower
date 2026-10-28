@@ -13,7 +13,7 @@ import {
   type UpdateCustomerInput,
   type CustomerAddressInput,
 } from '@/lib/nexus/customers';
-import { autocompleteAddress, reverseGeocodeAddress, type AddressPrediction } from '@/lib/nexus/geocode';
+import { autocompleteAddress, fetchPlaceDetails, reverseGeocodeAddress, type AddressPrediction } from '@/lib/nexus/geocode';
 import { logAudit } from '@/lib/audit/log';
 
 export async function searchAddressAction(query: string): Promise<AddressPrediction[]> {
@@ -22,6 +22,10 @@ export async function searchAddressAction(query: string): Promise<AddressPredict
 
 export async function reverseGeocodeAction(lat: number, lng: number): Promise<AddressPrediction | null> {
   return reverseGeocodeAddress(lat, lng);
+}
+
+export async function placeDetailsAction(placeId: string): Promise<AddressPrediction | null> {
+  return fetchPlaceDetails(placeId).catch(() => null);
 }
 
 export async function updateCustomerAction(id: string, input: UpdateCustomerInput): Promise<NexusCustomerDetail> {

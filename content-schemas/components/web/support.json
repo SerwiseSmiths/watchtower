@@ -1,0 +1,44 @@
+{
+  "collectionName": "components_web_supports",
+  "info": {
+    "displayName": "Support",
+    "description": "Customer support number and Call Now button"
+  },
+  "options": {},
+  "attributes": {
+    "eyebrow": {
+      "type": "string"
+    },
+    "eyebrowStyle": {
+      "type": "component",
+      "repeatable": false,
+      "component": "web.text-style"
+    },
+    "phoneNumber": {
+      "type": "string"
+    },
+    "phoneStyle": {
+      "type": "component",
+      "repeatable": false,
+      "component": "web.text-style"
+    },
+    "description": {
+      "type": "text"
+    },
+    "descriptionStyle": {
+      "type": "component",
+      "repeatable": false,
+      "component": "web.text-style"
+    },
+    "callButton": {
+      "type": "component",
+      "repeatable": false,
+      "component": "web.button"
+    },
+    "style": {
+      "type": "component",
+      "repeatable": false,
+      "component": "web.section-style"
+    }
+  }
+}

@@ -1,0 +1,43 @@
+{
+  "collectionName": "components_web_text_styles",
+  "info": {
+    "displayName": "Text Style",
+    "description": "Colour and typography for a piece of text (sizes in px; letter spacing in em)"
+  },
+  "options": {},
+  "attributes": {
+    "color": {
+      "type": "customField",
+      "customField": "plugin::color-picker.color",
+      "options": {
+        "format": "hex"
+      }
+    },
+    "fontSize": {
+      "type": "decimal"
+    },
+    "fontSizeMobile": {
+      "type": "decimal"
+    },
+    "fontWeight": {
+      "type": "enumeration",
+      "enum": [
+        "regular",
+        "medium",
+        "semibold",
+        "bold",
+        "extrabold"
+      ]
+    },
+    "lineHeight": {
+      "type": "decimal"
+    },
+    "letterSpacing": {
+      "type": "decimal"
+    },
+    "uppercase": {
+      "type": "boolean",
+      "default": false
+    }
+  }
+}

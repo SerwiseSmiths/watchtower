@@ -24,7 +24,9 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className={outfit.className}>
+      {/* Browser extensions (e.g. ColorZilla's cz-shortcut-listen) add attributes to <body>
+          before hydration; this only ignores attribute diffs on <body> itself, not its children. */}
+      <body className={outfit.className} suppressHydrationWarning>
         <ScaleVars />
         {children}
         <RealtimeFeed />

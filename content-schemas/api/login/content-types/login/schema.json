@@ -1,0 +1,92 @@
+{
+  "kind": "singleType",
+  "collectionName": "logins",
+  "info": {
+    "singularName": "login",
+    "pluralName": "logins",
+    "displayName": "Login",
+    "description": "Website login drawer — copy for each step and its styling. {phone}, {seconds} and {name} are filled in live."
+  },
+  "options": {
+    "draftAndPublish": false
+  },
+  "attributes": {
+    "logo": {
+      "type": "media",
+      "multiple": false,
+      "required": false,
+      "allowedTypes": [
+        "images"
+      ]
+    },
+    "phoneTitle": {
+      "type": "string"
+    },
+    "phoneLabel": {
+      "type": "string"
+    },
+    "phonePlaceholder": {
+      "type": "string"
+    },
+    "termsPrefix": {
+      "type": "string"
+    },
+    "termsLabel": {
+      "type": "string"
+    },
+    "termsUrl": {
+      "type": "string"
+    },
+    "privacyLabel": {
+      "type": "string"
+    },
+    "privacyUrl": {
+      "type": "string"
+    },
+    "continueLabel": {
+      "type": "string"
+    },
+    "otpTitle": {
+      "type": "string"
+    },
+    "otpLabel": {
+      "type": "string"
+    },
+    "otpSubtitle": {
+      "type": "string"
+    },
+    "resendCountdownText": {
+      "type": "string"
+    },
+    "resendLabel": {
+      "type": "string"
+    },
+    "backLabel": {
+      "type": "string"
+    },
+    "verifyLabel": {
+      "type": "string"
+    },
+    "welcomeTitle": {
+      "type": "string"
+    },
+    "signedInTitle": {
+      "type": "string"
+    },
+    "newUserMessage": {
+      "type": "text"
+    },
+    "returningUserMessage": {
+      "type": "text"
+    },
+    "doneLabel": {
+      "type": "string"
+    },
+    "style": {
+      "type": "component",
+      "repeatable": false,
+      "component": "web.drawer-style"
+    }
+  },
+  "pluginOptions": {}
+}

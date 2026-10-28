@@ -122,12 +122,41 @@ function ScalarField({ name, field, value, onChange }: AttributeFieldProps) {
   if (field.type === 'json') {
     return <JsonField value={value} onChange={onChange} />;
   }
+  if (field.format === 'color') {
+    return <ColorField name={name} value={value} onChange={onChange} />;
+  }
   return (
     <TextInput
       name={name}
       value={(value as string) ?? ''}
       onChange={(e: React.ChangeEvent<HTMLInputElement>) => onChange(e.target.value)}
     />
+  );
+}
+
+const HEX6 = /^#[0-9a-f]{6}$/i;
+
+/** Hex color (Strapi color-picker custom field): native swatch + free-text input (accepts any CSS color, e.g. rgba). */
+function ColorField({ name, value, onChange }: { name: string; value: unknown; onChange: (value: unknown) => void }) {
+  const text = (value as string) ?? '';
+  return (
+    <Flex gap={2} alignItems="center">
+      <input
+        type="color"
+        aria-label={`${name} color picker`}
+        value={HEX6.test(text) ? text : '#000000'}
+        onChange={(e) => onChange(e.target.value.toUpperCase())}
+        style={{ width: 40, height: 40, padding: 2, border: '1px solid #dcdce4', borderRadius: 4, background: '#fff', cursor: 'pointer', flexShrink: 0 }}
+      />
+      <Box flex={1}>
+        <TextInput
+          name={name}
+          placeholder="#RRGGBB"
+          value={text}
+          onChange={(e: React.ChangeEvent<HTMLInputElement>) => onChange(e.target.value || null)}
+        />
+      </Box>
+    </Flex>
   );
 }
 

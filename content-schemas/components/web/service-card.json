@@ -1,0 +1,71 @@
+{
+  "collectionName": "components_web_service_cards",
+  "info": {
+    "displayName": "Service Card",
+    "description": "One appliance in the services grid (also feeds the hero's appliance dropdown)"
+  },
+  "options": {},
+  "attributes": {
+    "appliance": {
+      "type": "enumeration",
+      "enum": [
+        "ac",
+        "fridge",
+        "washer",
+        "purifier",
+        "geyser"
+      ],
+      "required": true
+    },
+    "title": {
+      "type": "string",
+      "required": true
+    },
+    "dropdownLabel": {
+      "type": "string"
+    },
+    "description": {
+      "type": "text"
+    },
+    "image": {
+      "type": "media",
+      "multiple": false,
+      "required": false,
+      "allowedTypes": [
+        "images"
+      ]
+    },
+    "thumbnail": {
+      "type": "media",
+      "multiple": false,
+      "required": false,
+      "allowedTypes": [
+        "images"
+      ]
+    },
+    "imageWidth": {
+      "type": "integer"
+    },
+    "imageHeight": {
+      "type": "integer"
+    },
+    "ctaLabel": {
+      "type": "string"
+    },
+    "ctaAction": {
+      "type": "enumeration",
+      "enum": [
+        "none",
+        "login",
+        "join",
+        "link",
+        "call",
+        "scroll"
+      ],
+      "default": "login"
+    },
+    "ctaHref": {
+      "type": "string"
+    }
+  }
+}
