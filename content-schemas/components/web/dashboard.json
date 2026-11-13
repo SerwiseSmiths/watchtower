@@ -1,0 +1,167 @@
+{
+  "collectionName": "components_web_dashboards",
+  "info": {
+    "displayName": "Dashboard",
+    "icon": "apps",
+    "description": "Website dashboard shown to signed-in customers — every label, tile, picture, link and colour. {name} is filled in live. Lives on the “dashboard” web page. The app QR and download link come from Global Config → APP_DOWNLOAD_LINK."
+  },
+  "options": {},
+  "attributes": {
+    "personalLabel": {
+      "type": "string"
+    },
+    "organizationLabel": {
+      "type": "string"
+    },
+    "organizationNotice": {
+      "type": "string"
+    },
+    "avatar": {
+      "type": "media",
+      "multiple": false,
+      "required": false,
+      "allowedTypes": [
+        "images"
+      ]
+    },
+    "avatarEmoji": {
+      "type": "string"
+    },
+    "morningGreeting": {
+      "type": "string"
+    },
+    "afternoonGreeting": {
+      "type": "string"
+    },
+    "eveningGreeting": {
+      "type": "string"
+    },
+    "fallbackName": {
+      "type": "string"
+    },
+    "signOutLabel": {
+      "type": "string"
+    },
+    "addressTile": {
+      "type": "component",
+      "repeatable": false,
+      "component": "web.dashboard-tile"
+    },
+    "walletTile": {
+      "type": "component",
+      "repeatable": false,
+      "component": "web.dashboard-tile"
+    },
+    "appliancesTile": {
+      "type": "component",
+      "repeatable": false,
+      "component": "web.dashboard-tile"
+    },
+    "ordersTile": {
+      "type": "component",
+      "repeatable": false,
+      "component": "web.dashboard-tile"
+    },
+    "dialTitle": {
+      "type": "string"
+    },
+    "dialItems": {
+      "type": "component",
+      "repeatable": true,
+      "component": "web.dial-item"
+    },
+    "plansTitle": {
+      "type": "string"
+    },
+    "noPlanText": {
+      "type": "text"
+    },
+    "activePlanFallback": {
+      "type": "string"
+    },
+    "nextServiceLabel": {
+      "type": "string"
+    },
+    "plansPreviewLogo": {
+      "type": "media",
+      "multiple": false,
+      "required": false,
+      "allowedTypes": [
+        "images"
+      ]
+    },
+    "plansPreview": {
+      "type": "component",
+      "repeatable": true,
+      "component": "web.plan-preview"
+    },
+    "exploreLabel": {
+      "type": "string"
+    },
+    "exploreHref": {
+      "type": "string"
+    },
+    "rateCard": {
+      "type": "component",
+      "repeatable": false,
+      "component": "web.dashboard-tile"
+    },
+    "magicLabel": {
+      "type": "string"
+    },
+    "magicHint": {
+      "type": "text"
+    },
+    "magicHandoffTitle": {
+      "type": "string"
+    },
+    "magicAction": {
+      "type": "enumeration",
+      "enum": [
+        "app",
+        "link",
+        "call",
+        "magic-booking",
+        "add-money",
+        "order-history",
+        "none"
+      ],
+      "default": "app"
+    },
+    "magicHref": {
+      "type": "string"
+    },
+    "supportPhone": {
+      "type": "string"
+    },
+    "qrWordmark": {
+      "type": "media",
+      "multiple": false,
+      "required": false,
+      "allowedTypes": [
+        "images"
+      ]
+    },
+    "addMoney": {
+      "type": "component",
+      "repeatable": false,
+      "component": "web.add-money"
+    },
+    "orderHistory": {
+      "type": "component",
+      "repeatable": false,
+      "component": "web.order-history"
+    },
+    "handoffText": {
+      "type": "text"
+    },
+    "handoffButtonLabel": {
+      "type": "string"
+    },
+    "style": {
+      "type": "component",
+      "repeatable": false,
+      "component": "web.dashboard-style"
+    }
+  }
+}

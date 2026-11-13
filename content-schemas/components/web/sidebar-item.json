@@ -1,0 +1,39 @@
+{
+  "collectionName": "components_web_sidebar_items",
+  "info": {
+    "displayName": "Sidebar Item",
+    "description": "One entry in the signed-in sidebar. With a link it opens that page (and is highlighted there); without one it shows the “continue in the app” dialog."
+  },
+  "options": {},
+  "attributes": {
+    "label": {
+      "type": "string",
+      "required": true
+    },
+    "icon": {
+      "type": "enumeration",
+      "enum": [
+        "ticket",
+        "shield",
+        "appliance",
+        "settings",
+        "none"
+      ],
+      "default": "none"
+    },
+    "image": {
+      "type": "media",
+      "multiple": false,
+      "required": false,
+      "allowedTypes": [
+        "images"
+      ]
+    },
+    "href": {
+      "type": "string"
+    },
+    "handoffTitle": {
+      "type": "string"
+    }
+  }
+}

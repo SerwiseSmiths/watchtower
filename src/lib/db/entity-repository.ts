@@ -1,24 +1,15 @@
 import { randomBytes } from 'crypto';
 import { unstable_cache, revalidateTag } from 'next/cache';
 import { prisma } from './prisma';
-import { cmpsTableName, getComponent, getContentType, getRelationTable, toColumnName } from '../content-schema/registry';
+import { sqlModel, type SqlModel } from './sql-model';
+import { cmpsTableName, ensureSchemaRegistry, getComponent, getContentType, getRelationTable, getSchemaVersion, toColumnName } from '../content-schema/registry';
 import type { ContentTypeSchema, FieldSchema } from '../content-schema/types';
 import { logAudit } from '@/lib/audit/log';
 import { notifyNexusCacheInvalidation } from '@/lib/nexus/cache-invalidation';
 import { notifyWebsiteRevalidation } from '@/lib/website/revalidate';
 
 type Row = Record<string, unknown>;
-type PrismaModel = {
-  findMany: (args?: unknown) => Promise<Row[]>;
-  findUnique: (args?: unknown) => Promise<Row | null>;
-  count: (args?: unknown) => Promise<number>;
-  create: (args: { data: Row }) => Promise<Row>;
-  update: (args: { where: { id: number }; data: Row }) => Promise<Row>;
-  delete: (args: { where: { id: number } }) => Promise<Row>;
-  deleteMany: (args: { where: Row }) => Promise<{ count: number }>;
-};
-
-const prismaAny = prisma as unknown as Record<string, PrismaModel>;
+type PrismaModel = SqlModel;
 
 /**
  * Caps the number of Prisma queries in flight at once, regardless of how deeply nested
@@ -71,9 +62,10 @@ async function withDbLimit<T>(fn: () => Promise<T>): Promise<T> {
   }
 }
 
+// Raw SQL rather than generated Prisma delegates: tables/columns added by the Content-Type
+// Builder at runtime don't exist in the generated client (see sql-model.ts).
 function model(tableName: string): PrismaModel {
-  const m = prismaAny[tableName];
-  if (!m) throw new Error(`No Prisma model for table "${tableName}" — did you run \`yarn prisma:pull\`?`);
+  const m = sqlModel(prisma, tableName);
   return {
     findMany: (args) => withDbLimit(() => m.findMany(args)),
     findUnique: (args) => withDbLimit(() => m.findUnique(args)),
@@ -160,6 +152,7 @@ function shallowScalars(row: Row, attributes: Record<string, FieldSchema>): Row 
  * relation filter ("device type is X") without needing a real Prisma relation defined on the
  * hand-curated `_lnk` tables. */
 export async function findOwnerIdsByRelationTarget(ownerUid: string, fieldName: string, targetId: number): Promise<number[]> {
+  await ensureSchemaRegistry();
   const map = getRelationTable(ownerUid, fieldName);
   const links = await model(map.table).findMany({ where: { [map.targetColumn]: targetId } });
   return links.map((l) => l[map.ownerColumn] as number | null).filter((id): id is number => id != null);
@@ -444,6 +437,7 @@ function pickFields(row: Row, fields: string[] | undefined): Row {
 }
 
 export async function listEntities(contentTypeUid: string, options: ListOptions = {}) {
+  await ensureSchemaRegistry();
   const schema = getContentType(contentTypeUid);
   const page = options.page ?? 1;
   const pageSize = options.pageSize ?? 25;
@@ -481,7 +475,8 @@ const CONTENT_CACHE_SECONDS = 45;
  * can invalidate it immediately via `revalidateTag`, with a 45s TTL as a backstop.
  */
 export async function cachedListEntities(contentTypeUid: string, options: ListOptions = {}) {
-  return unstable_cache(() => listEntities(contentTypeUid, options), ['listEntities', contentTypeUid, JSON.stringify(options)], {
+  await ensureSchemaRegistry();
+  return unstable_cache(() => listEntities(contentTypeUid, options), ['listEntities', contentTypeUid, String(getSchemaVersion()), JSON.stringify(options)], {
     tags: [contentTag(contentTypeUid)],
     revalidate: CONTENT_CACHE_SECONDS,
   })();
@@ -497,6 +492,7 @@ const LABEL_FIELD_CANDIDATES = ['name', 'title', 'label', 'key'];
  * and a label.
  */
 export async function findLabelOptions(contentTypeUid: string, pageSize = 200): Promise<{ id: number; label: string }[]> {
+  await ensureSchemaRegistry();
   const schema = getContentType(contentTypeUid);
   const labelAttrName = LABEL_FIELD_CANDIDATES.find((name) => schema.attributes[name]?.kind === 'scalar');
   const where = statusWhere(schema, schema.draftAndPublish ? 'draft' : undefined);
@@ -513,6 +509,7 @@ export async function findLabelOptions(contentTypeUid: string, pageSize = 200): 
  * per-row. Only meaningful for draftAndPublish content types.
  */
 export async function getPublishedDocumentIds(contentTypeUid: string, documentIds: string[]): Promise<Set<string>> {
+  await ensureSchemaRegistry();
   if (documentIds.length === 0) return new Set();
   const schema = getContentType(contentTypeUid);
   const rows = await model(schema.collectionName).findMany({
@@ -522,6 +519,7 @@ export async function getPublishedDocumentIds(contentTypeUid: string, documentId
 }
 
 export async function findEntity(contentTypeUid: string, id: number, options: { status?: 'draft' | 'published' } = {}) {
+  await ensureSchemaRegistry();
   const schema = getContentType(contentTypeUid);
   const where: Row = { id, ...statusWhere(schema, options.status) };
   const rows = await model(schema.collectionName).findMany({ where, take: 1 });
@@ -548,6 +546,7 @@ async function findEntityById(contentTypeUid: string, id: number) {
  * default `find`/`findOne` behavior of serving published content).
  */
 export async function findEntityByDocumentId(contentTypeUid: string, documentId: string, options: { status?: 'draft' | 'published' } = {}) {
+  await ensureSchemaRegistry();
   const schema = getContentType(contentTypeUid);
   const where: Row = { document_id: documentId, ...statusWhere(schema, options.status) };
   // A document has at most 2 rows (draft + published) — fetch both and pick in JS rather than
@@ -560,6 +559,7 @@ export async function findEntityByDocumentId(contentTypeUid: string, documentId:
 
 /** For singleType content types — there's exactly one logical entity (the first/only row). */
 export async function findSingleType(contentTypeUid: string, options: { status?: 'draft' | 'published' } = {}) {
+  await ensureSchemaRegistry();
   const schema = getContentType(contentTypeUid);
   const where = statusWhere(schema, options.status);
   const rows = await model(schema.collectionName).findMany({ where, orderBy: { id: 'asc' }, take: 1 });
@@ -570,7 +570,8 @@ export async function findSingleType(contentTypeUid: string, options: { status?:
 
 /** Cached wrapper around `findSingleType` — same rationale as `cachedListEntities`. */
 export async function cachedFindSingleType(contentTypeUid: string, options: { status?: 'draft' | 'published' } = {}) {
-  return unstable_cache(() => findSingleType(contentTypeUid, options), ['findSingleType', contentTypeUid, JSON.stringify(options)], {
+  await ensureSchemaRegistry();
+  return unstable_cache(() => findSingleType(contentTypeUid, options), ['findSingleType', contentTypeUid, String(getSchemaVersion()), JSON.stringify(options)], {
     tags: [contentTag(contentTypeUid)],
     revalidate: CONTENT_CACHE_SECONDS,
   })();
@@ -748,6 +749,7 @@ function labelFor(row: Row): string | undefined {
 }
 
 export async function createEntity(contentTypeUid: string, data: Row) {
+  await ensureSchemaRegistry();
   const schema = getContentType(contentTypeUid);
   const now = new Date();
   const scalarData = buildScalarData(schema.attributes, data);
@@ -776,6 +778,7 @@ export async function createEntity(contentTypeUid: string, data: Row) {
 }
 
 export async function updateEntity(contentTypeUid: string, id: number, data: Row) {
+  await ensureSchemaRegistry();
   const schema = getContentType(contentTypeUid);
   const before = await findEntityById(contentTypeUid, id);
   const scalarData = buildScalarData(schema.attributes, data);
@@ -816,6 +819,7 @@ function uniqueViolationField(schema: ContentTypeSchema, err: unknown): string |
  * offending field instead of a raw Postgres error, for the caller to surface as a failure dialog.
  */
 export async function duplicateEntity(contentTypeUid: string, documentId: string) {
+  await ensureSchemaRegistry();
   const schema = getContentType(contentTypeUid);
   const source = await findEntityByDocumentId(contentTypeUid, documentId, { status: 'draft' });
   if (!source) throw new Error('Entity not found');
@@ -844,6 +848,7 @@ export async function duplicateEntity(contentTypeUid: string, documentId: string
 }
 
 export async function deleteEntity(contentTypeUid: string, id: number) {
+  await ensureSchemaRegistry();
   const schema = getContentType(contentTypeUid);
   const before = await findEntityById(contentTypeUid, id);
   for (const [name, field] of Object.entries(schema.attributes)) {
@@ -875,6 +880,7 @@ export async function deleteEntity(contentTypeUid: string, id: number) {
  * referenced, not duplicated.
  */
 export async function publishEntity(contentTypeUid: string, draftId: number) {
+  await ensureSchemaRegistry();
   const schema = getContentType(contentTypeUid);
   if (!schema.draftAndPublish) throw new Error(`${contentTypeUid} does not have draftAndPublish enabled`);
 
@@ -916,6 +922,7 @@ export async function publishEntity(contentTypeUid: string, draftId: number) {
 
 /** Removes the published sibling of `draftId`'s document, leaving the draft untouched. */
 export async function unpublishEntity(contentTypeUid: string, draftId: number) {
+  await ensureSchemaRegistry();
   const schema = getContentType(contentTypeUid);
   if (!schema.draftAndPublish) throw new Error(`${contentTypeUid} does not have draftAndPublish enabled`);
 

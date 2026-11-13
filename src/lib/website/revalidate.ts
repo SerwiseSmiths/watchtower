@@ -3,6 +3,14 @@
 const WEBSITE_CACHE_TAGS: Record<string, string> = {
   'api::web-page.web-page': 'cms:web-page',
   'api::login.login': 'cms:login',
+  'api::subscription-plan.subscription-plan': 'cms:plans',
+  'api::global-config.global-config': 'cms:global',
+  'api::magic-flow.magic-flow': 'cms:magic-flow',
+  'api::address-book.address-book': 'cms:address-book',
+  'api::settings-drawer.settings-drawer': 'cms:settings-drawer',
+  // Website Rate Card rows: active Service Parts grouped by Device Type
+  'api::service-part.service-part': 'cms:rate-card',
+  'api::device-type.device-type': 'cms:rate-card',
 };
 
 /**

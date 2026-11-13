@@ -1,0 +1,33 @@
+{
+  "collectionName": "components_web_plan_previews",
+  "info": {
+    "displayName": "Plan Preview Card",
+    "description": "A mini plan card in the dashboard's My Plans tile (first = left, second = front/centre, third = right)"
+  },
+  "options": {},
+  "attributes": {
+    "price": {
+      "type": "string"
+    },
+    "description": {
+      "type": "string"
+    },
+    "buttonLabel": {
+      "type": "string"
+    },
+    "buttonColor": {
+      "type": "customField",
+      "customField": "plugin::color-picker.color",
+      "options": {
+        "format": "hex"
+      }
+    },
+    "buttonTextColor": {
+      "type": "customField",
+      "customField": "plugin::color-picker.color",
+      "options": {
+        "format": "hex"
+      }
+    }
+  }
+}

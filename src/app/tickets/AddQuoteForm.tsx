@@ -322,7 +322,12 @@ export default function AddQuoteForm({
     const payload = buildPayload();
     startTransition(async () => {
       try {
-        await addQuoteAction(complaintId, payload, notes.trim() || undefined, initialQuote?.totalAmount);
+        // Nexus's rejection reason arrives as { ok: false } (thrown messages are hidden in production).
+        const result = await addQuoteAction(complaintId, payload, notes.trim() || undefined, initialQuote?.totalAmount);
+        if (!result.ok) {
+          setError(result.error);
+          return;
+        }
         onDone();
       } catch (err) {
         // Stay on the confirm step on failure so a retry doesn't need

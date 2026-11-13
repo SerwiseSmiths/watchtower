@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, type CSSProperties } from 'react';
+import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import type { NexusWalletLedgerEntry, NexusWalletHistory } from '@/lib/nexus/wallet';
 import { fetchProviderLedgerAction, payoutProviderAction } from './actions';
 import { CloseIcon } from '../tickets/icons';
@@ -94,8 +94,14 @@ export default function ProviderLedgerDrawer({
     setVisible(false);
   }, [open]);
 
+  // One key per payout attempt: a retry after a lost response (timeout, cold
+  // start) reuses it, so nexus returns the original debit instead of paying
+  // the provider out twice. Rotated only once a payout succeeds.
+  const payoutKeyRef = useRef('');
+
   useEffect(() => {
     if (!open) return;
+    payoutKeyRef.current = crypto.randomUUID();
     setStep('ledger');
     setError(null);
     setDone(false);
@@ -123,7 +129,14 @@ export default function ProviderLedgerDrawer({
     setSubmitting(true);
     setError(null);
     try {
-      await payoutProviderAction(providerId, parsedAmount, note.trim() || undefined);
+      // Business failures (insufficient balance, reused key, …) come back as { ok: false } so
+      // nexus's message survives production builds; a throw here is a lost/failed request.
+      const result = await payoutProviderAction(providerId, parsedAmount, payoutKeyRef.current, note.trim() || undefined);
+      if (!result.ok) {
+        setError(result.error);
+        return;
+      }
+      payoutKeyRef.current = crypto.randomUUID();
       setDone(true);
       onPayoutComplete();
     } catch (err) {

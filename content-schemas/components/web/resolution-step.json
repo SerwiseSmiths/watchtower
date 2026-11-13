@@ -1,0 +1,35 @@
+{
+  "collectionName": "components_web_resolution_steps",
+  "info": {
+    "displayName": "Resolution Step",
+    "description": "One step of “How your issue will be resolved”. The stage decides when it lights up."
+  },
+  "options": {},
+  "attributes": {
+    "stageKey": {
+      "type": "enumeration",
+      "enum": [
+        "assigning",
+        "entrance",
+        "estimating",
+        "completed"
+      ],
+      "required": true
+    },
+    "title": {
+      "type": "string",
+      "required": true
+    },
+    "description": {
+      "type": "string"
+    },
+    "image": {
+      "type": "media",
+      "multiple": false,
+      "required": false,
+      "allowedTypes": [
+        "images"
+      ]
+    }
+  }
+}

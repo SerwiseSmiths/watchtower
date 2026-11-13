@@ -1,4 +1,4 @@
-import { publishEntityAction, saveEntityAction, unpublishEntityAction } from '../src/app/admin/(dashboard)/content-manager/[type]/[id]/actions';
+import { publishEntityAction, saveEntityAction, unpublishEntityAction } from '../src/app/cms/content-manager/[type]/[id]/actions';
 import { deleteEntity, findEntityByDocumentId } from '../src/lib/db/entity-repository';
 import { prisma } from '../src/lib/db/prisma';
 

@@ -45,7 +45,15 @@
         "web.support",
         "web.counter",
         "web.help-cta",
-        "web.footer"
+        "web.footer",
+        "web.login",
+        "web.dashboard",
+        "web.app-sidebar",
+        "web.plans",
+        "web.ticket",
+        "web.resolution-steps",
+        "web.info-blocks",
+        "web.rate-card"
       ],
       "required": false
     }

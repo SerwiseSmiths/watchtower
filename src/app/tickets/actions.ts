@@ -1,7 +1,9 @@
 'use server';
 
+import { requireRootSession } from '@/lib/auth/require-root-session';
+
 import { revalidatePath, updateTag } from 'next/cache';
-import { unstable_rethrow } from 'next/navigation';
+import { errorMessage, type ActionResult } from '@/lib/action-result';
 import { setComplaintStage, linkDeviceToComplaint, assignProvider, respondToQuote, addQuote, createComplaint, reopenComplaint, nudgeComplaintOnWhatsApp, recordCashPayment, completeService, type CashCollectedBy, type CreateComplaintInput, type NexusComplaint, type AddQuoteItemInput } from '@/lib/nexus/complaints';
 import { addDeviceForCustomer, listDevicesForCustomer, type DeviceKey, type NexusDeviceSummary } from '@/lib/nexus/devices';
 import { listProviders, type NexusProvider } from '@/lib/nexus/providers';
@@ -11,27 +13,20 @@ import { logAudit } from '@/lib/audit/log';
 import { fetchWhatsAppStatus, startWhatsAppPairing, logoutWhatsApp, type WhatsAppStatus } from '@/lib/nexus/whatsapp';
 
 export async function bypassEntrance(complaintId: string) {
+  await requireRootSession();
   await setComplaintStage(complaintId, 'QR_VALIDATED');
   revalidatePath('/tickets');
   updateTag('complaints');
   await logAudit({ module: 'ticket', action: 'UPDATE', entityId: complaintId, changes: { stage: { old: 'ENTRANCE', new: 'QR_VALIDATED' } } });
 }
 
-// WhatsApp actions return results instead of throwing — production Next.js
-// hides thrown server-action messages, and the UI needs nexus's actual reason
-// (not connected, number not on WhatsApp, busy, …).
-export type ActionResult<T = null> = { ok: true; data: T } | { ok: false; error: string };
-
-// Lets nexusFetch's redirect-to-login (expired session) through instead of
-// reporting it as an ordinary error.
-const errorMessage = (err: unknown) => {
-  unstable_rethrow(err);
-  return err instanceof Error ? err.message : 'Something went wrong';
-};
+// WhatsApp, quote and cash actions return an ActionResult instead of throwing so the UI
+// gets nexus's actual reason (see lib/action-result.ts).
 
 /** Nudges the customer on WhatsApp to track an open ticket in the app. Nexus owns
  *  the message, the closed-ticket check, and the actual WhatsApp send. */
 export async function nudgeCustomerOnWhatsApp(complaintId: string): Promise<ActionResult & { notConnected?: boolean }> {
+  await requireRootSession();
   try {
     await nudgeComplaintOnWhatsApp(complaintId);
   } catch (err) {
@@ -52,6 +47,7 @@ export async function nudgeCustomerOnWhatsApp(complaintId: string): Promise<Acti
 }
 
 export async function getWhatsAppStatusAction(): Promise<ActionResult<WhatsAppStatus>> {
+  await requireRootSession();
   try {
     return { ok: true, data: await fetchWhatsAppStatus() };
   } catch (err) {
@@ -60,6 +56,7 @@ export async function getWhatsAppStatusAction(): Promise<ActionResult<WhatsAppSt
 }
 
 export async function startWhatsAppPairingAction(phone: string): Promise<ActionResult<{ code: string }>> {
+  await requireRootSession();
   try {
     const code = await startWhatsAppPairing(phone);
     await logAudit({ module: 'whatsapp', action: 'UPDATE', entityId: 'sender', changes: { linkStarted: { old: null, new: phone } } });
@@ -70,6 +67,7 @@ export async function startWhatsAppPairingAction(phone: string): Promise<ActionR
 }
 
 export async function logoutWhatsAppAction(): Promise<ActionResult> {
+  await requireRootSession();
   try {
     const before = await fetchWhatsAppStatus().catch(() => null);
     await logoutWhatsApp();
@@ -92,6 +90,7 @@ export interface AddApplianceInput {
  *  effects a provider gets from radix's add-appliance flow followed by identifying
  *  the device on-site. */
 export async function addAppliance(input: AddApplianceInput) {
+  await requireRootSession();
   const device = await addDeviceForCustomer({
     targetUserId: input.customerId,
     deviceKey: input.deviceKey,
@@ -105,10 +104,12 @@ export async function addAppliance(input: AddApplianceInput) {
 }
 
 export async function fetchCustomerDevices(customerId: string, deviceKey: DeviceKey): Promise<NexusDeviceSummary[]> {
+  await requireRootSession();
   return listDevicesForCustomer(customerId, deviceKey);
 }
 
 export async function linkExistingAppliance(complaintId: string, deviceId: string, deviceKey: string) {
+  await requireRootSession();
   await linkDeviceToComplaint(complaintId, deviceId);
   revalidatePath('/tickets');
   updateTag('complaints');
@@ -116,10 +117,12 @@ export async function linkExistingAppliance(complaintId: string, deviceId: strin
 }
 
 export async function fetchProviders(search?: string): Promise<NexusProvider[]> {
+  await requireRootSession();
   return listProviders(search);
 }
 
 export async function reassignProvider(complaintId: string, providerId: string, force = false) {
+  await requireRootSession();
   await assignProvider(complaintId, providerId, force);
   revalidatePath('/tickets');
   updateTag('complaints');
@@ -134,8 +137,17 @@ export async function reassignProvider(complaintId: string, providerId: string, 
   });
 }
 
-export async function respondToQuoteAction(complaintId: string, approved: boolean, rejectionReason?: string) {
-  await respondToQuote(complaintId, approved, rejectionReason);
+export async function respondToQuoteAction(
+  complaintId: string,
+  approved: boolean,
+  rejectionReason?: string,
+): Promise<ActionResult> {
+  await requireRootSession();
+  try {
+    await respondToQuote(complaintId, approved, rejectionReason);
+  } catch (err) {
+    return { ok: false, error: errorMessage(err) };
+  }
   revalidatePath('/tickets');
   updateTag('complaints');
   await logAudit({
@@ -144,13 +156,16 @@ export async function respondToQuoteAction(complaintId: string, approved: boolea
     entityId: complaintId,
     changes: { quoteStatus: { old: 'PENDING', new: approved ? 'APPROVED' : 'REJECTED' }, ...(rejectionReason && { rejectionReason: { old: null, new: rejectionReason } }) },
   });
+  return { ok: true, data: null };
 }
 
 export async function fetchServiceParts(deviceType?: string): Promise<NexusServicePart[]> {
+  await requireRootSession();
   return listParts(deviceType);
 }
 
 export async function fetchServicePart(documentId: string): Promise<NexusServicePart | null> {
+  await requireRootSession();
   return getPart(documentId);
 }
 
@@ -160,8 +175,14 @@ export async function addQuoteAction(
   items: AddQuoteItemInput[],
   notes?: string,
   previousTotal?: number,
-): Promise<NexusComplaint> {
-  const complaint = await addQuote(complaintId, items, notes);
+): Promise<ActionResult<NexusComplaint>> {
+  await requireRootSession();
+  let complaint: NexusComplaint;
+  try {
+    complaint = await addQuote(complaintId, items, notes);
+  } catch (err) {
+    return { ok: false, error: errorMessage(err) };
+  }
   revalidatePath('/tickets');
   updateTag('complaints');
   // Read the total nexus actually persisted, not what these items summed to
@@ -174,18 +195,21 @@ export async function addQuoteAction(
     entityId: complaintId,
     changes: { quote: { old: previousTotal ?? null, new: totalAmount } },
   });
-  return complaint;
+  return { ok: true, data: complaint };
 }
 
 export async function searchCustomers(search?: string): Promise<NexusCustomerListItem[]> {
+  await requireRootSession();
   return fetchAllCustomers(search);
 }
 
 export async function fetchCustomerDetail(customerId: string): Promise<NexusCustomerDetail> {
+  await requireRootSession();
   return fetchCustomer(customerId);
 }
 
 export async function createTicketAction(input: CreateComplaintInput): Promise<NexusComplaint[]> {
+  await requireRootSession();
   const complaints = await createComplaint(input);
   revalidatePath('/tickets');
   updateTag('complaints');
@@ -196,6 +220,7 @@ export async function createTicketAction(input: CreateComplaintInput): Promise<N
 }
 
 export async function cancelTicketAction(complaintId: string, reason?: string) {
+  await requireRootSession();
   await setComplaintStage(complaintId, 'REJECTED', reason);
   revalidatePath('/tickets');
   updateTag('complaints');
@@ -209,6 +234,7 @@ export async function cancelTicketAction(complaintId: string, reason?: string) {
 
 /** Provider finished the repair but didn't mark it in radix — moves IN_PROGRESS → PAYMENT. */
 export async function completeWorkAction(complaintId: string): Promise<ActionResult> {
+  await requireRootSession();
   try {
     await completeService(complaintId);
   } catch (err) {
@@ -229,6 +255,7 @@ export async function recordCashPaymentAction(
   collectedBy: CashCollectedBy,
   note?: string,
 ): Promise<ActionResult> {
+  await requireRootSession();
   try {
     await recordCashPayment(complaintId, collectedBy, note);
   } catch (err) {
@@ -251,6 +278,7 @@ export async function recordCashPaymentAction(
 }
 
 export async function reopenTicketAction(complaintId: string): Promise<NexusComplaint> {
+  await requireRootSession();
   const complaint = await reopenComplaint(complaintId);
   revalidatePath('/tickets');
   updateTag('complaints');

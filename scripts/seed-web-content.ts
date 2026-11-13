@@ -82,7 +82,6 @@ async function buildHomeBlocks(): Promise<Json[]> {
     coins: await asset('beyond/coins.png', 'Stack of gold coins'),
     technician: await asset('beyond/technician.png', 'Serwise technician holding a wrench'),
     hand: await asset('app/hand-phone.png', 'Hand holding a phone with the Serwise app'),
-    qr: await asset('app/qr.png', 'QR code to download the Serwise app'),
   };
 
   const appliances = [
@@ -177,9 +176,7 @@ async function buildHomeBlocks(): Promise<Json[]> {
       handImage: img.hand,
       arcColorFrom: '#9ECEFF',
       arcColorTo: '#FEFEFF',
-      qrImage: img.qr,
       qrLabel: 'Scan or Tap',
-      qrLink: 'https://play.google.com/store/apps/details?id=com.serwise',
       qrCardBackground: '#EDEDED',
       style: section({ backgroundColor: '#FFFFFF', anchorId: 'get-the-app' }),
     },

@@ -1,0 +1,57 @@
+{
+  "collectionName": "components_web_order_histories",
+  "info": {
+    "displayName": "Order History Popup",
+    "description": "Popup opened by a dashboard tile set to “order-history”: app QR (from Global Config) with the active-ticket count. {count} is filled in live."
+  },
+  "options": {},
+  "attributes": {
+    "title": {
+      "type": "string"
+    },
+    "activeTicketsText": {
+      "type": "string"
+    },
+    "activeTicketText": {
+      "type": "string"
+    },
+    "note": {
+      "type": "text"
+    },
+    "background": {
+      "type": "customField",
+      "customField": "plugin::color-picker.color",
+      "options": {
+        "format": "hex"
+      }
+    },
+    "borderColor": {
+      "type": "customField",
+      "customField": "plugin::color-picker.color",
+      "options": {
+        "format": "hex"
+      }
+    },
+    "titleColor": {
+      "type": "customField",
+      "customField": "plugin::color-picker.color",
+      "options": {
+        "format": "hex"
+      }
+    },
+    "textColor": {
+      "type": "customField",
+      "customField": "plugin::color-picker.color",
+      "options": {
+        "format": "hex"
+      }
+    },
+    "noteColor": {
+      "type": "customField",
+      "customField": "plugin::color-picker.color",
+      "options": {
+        "format": "hex"
+      }
+    }
+  }
+}

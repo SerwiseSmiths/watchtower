@@ -1,5 +1,7 @@
 'use server';
 
+import { requireRootSession } from '@/lib/auth/require-root-session';
+
 import { revalidatePath, updateTag } from 'next/cache';
 import {
   listProviderTiers,
@@ -17,6 +19,7 @@ async function findTier(id: string): Promise<NexusProviderTier | null> {
 }
 
 export async function createProviderTierAction(input: ProviderTierInput): Promise<NexusProviderTier> {
+  await requireRootSession();
   const tier = await createProviderTier(input);
   revalidatePath('/provider-tiers');
   updateTag('provider-tiers');
@@ -25,6 +28,7 @@ export async function createProviderTierAction(input: ProviderTierInput): Promis
 }
 
 export async function updateProviderTierAction(id: string, input: Partial<ProviderTierInput>): Promise<NexusProviderTier> {
+  await requireRootSession();
   const before = await findTier(id);
   const tier = await updateProviderTier(id, input);
   revalidatePath('/provider-tiers');
@@ -41,6 +45,7 @@ export async function updateProviderTierAction(id: string, input: Partial<Provid
 }
 
 export async function deleteProviderTierAction(id: string): Promise<void> {
+  await requireRootSession();
   const before = await findTier(id);
   await deleteProviderTier(id);
   revalidatePath('/provider-tiers');

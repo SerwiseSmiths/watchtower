@@ -1,0 +1,28 @@
+{
+  "collectionName": "components_web_info_blocks",
+  "info": {
+    "displayName": "Info Block",
+    "description": "A heading with text, and optionally a banner image (with a link) below it"
+  },
+  "options": {},
+  "attributes": {
+    "title": {
+      "type": "string",
+      "required": true
+    },
+    "body": {
+      "type": "text"
+    },
+    "image": {
+      "type": "media",
+      "multiple": false,
+      "required": false,
+      "allowedTypes": [
+        "images"
+      ]
+    },
+    "imageLink": {
+      "type": "string"
+    }
+  }
+}

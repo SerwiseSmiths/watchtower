@@ -1,13 +1,23 @@
-import { GraphQLError } from 'graphql';
+import { GraphQLError, type GraphQLSchema } from 'graphql';
 import { createYoga } from 'graphql-yoga';
 import type { NextRequest } from 'next/server';
 import { authenticateApiToken } from '@/lib/auth/api-token';
+import { ensureSchemaRegistry, getSchemaVersion } from '@/lib/content-schema/registry';
 import { buildGraphQLSchema } from '@/lib/graphql/schema';
 
-const schema = buildGraphQLSchema();
+// Rebuilt whenever the content-type registry version changes (Content-Type Builder edits), so new
+// types/fields show up in GraphQL without a redeploy.
+let cached: { version: number; schema: GraphQLSchema } | null = null;
+
+async function currentSchema(): Promise<GraphQLSchema> {
+  await ensureSchemaRegistry();
+  const version = getSchemaVersion();
+  if (!cached || cached.version !== version) cached = { version, schema: buildGraphQLSchema() };
+  return cached.schema;
+}
 
 const { handleRequest } = createYoga({
-  schema,
+  schema: () => currentSchema(),
   graphqlEndpoint: '/graphql',
   async context({ request }: { request: Request }) {
     const auth = await authenticateApiToken(request.headers.get('authorization'));

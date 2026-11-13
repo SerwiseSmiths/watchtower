@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { authenticateApiToken, authorizeApiToken, type RequiredScope } from '@/lib/auth/api-token';
-import { resolveContentTypeSlug } from '@/lib/content-schema/registry';
+import { ensureSchemaRegistry, resolveContentTypeSlug } from '@/lib/content-schema/registry';
 import {
   createEntity,
   deleteEntity,
@@ -19,7 +19,8 @@ function errorResponse(status: number, name: string, message: string) {
   return NextResponse.json({ data: null, error: { status, name, message, details: {} } }, { status });
 }
 
-function resolveContentType(typeSegment: string) {
+async function resolveContentType(typeSegment: string) {
+  await ensureSchemaRegistry();
   return resolveContentTypeSlug(typeSegment);
 }
 
@@ -40,7 +41,7 @@ interface RouteContext {
 export async function GET(request: NextRequest, { params }: RouteContext) {
   const { slug } = await params;
   const [typeSegment, idSegment] = slug;
-  const schema = resolveContentType(typeSegment);
+  const schema = await resolveContentType(typeSegment);
   if (!schema) return errorResponse(404, 'NotFoundError', `Unknown content type "${typeSegment}"`);
 
   const query = parseQuery(schema, request.nextUrl.searchParams);
@@ -68,7 +69,7 @@ export async function GET(request: NextRequest, { params }: RouteContext) {
 
 export async function POST(request: NextRequest, { params }: RouteContext) {
   const { slug } = await params;
-  const schema = resolveContentType(slug[0]);
+  const schema = await resolveContentType(slug[0]);
   if (!schema) return errorResponse(404, 'NotFoundError', `Unknown content type "${slug[0]}"`);
 
   const actionIndex = slug.indexOf('actions');
@@ -103,7 +104,7 @@ export async function POST(request: NextRequest, { params }: RouteContext) {
 export async function PUT(request: NextRequest, { params }: RouteContext) {
   const { slug } = await params;
   const [typeSegment, idSegment] = slug;
-  const schema = resolveContentType(typeSegment);
+  const schema = await resolveContentType(typeSegment);
   if (!schema) return errorResponse(404, 'NotFoundError', `Unknown content type "${typeSegment}"`);
 
   const denied = await authorize(request, schema.uid, 'update');
@@ -131,7 +132,7 @@ export async function PUT(request: NextRequest, { params }: RouteContext) {
 export async function DELETE(request: NextRequest, { params }: RouteContext) {
   const { slug } = await params;
   const [typeSegment, idSegment] = slug;
-  const schema = resolveContentType(typeSegment);
+  const schema = await resolveContentType(typeSegment);
   if (!schema) return errorResponse(404, 'NotFoundError', `Unknown content type "${typeSegment}"`);
 
   const denied = await authorize(request, schema.uid, 'delete');

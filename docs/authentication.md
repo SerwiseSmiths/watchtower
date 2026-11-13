@@ -1,20 +1,20 @@
 # Authentication — Reference (Watchtower)
 
-Watchtower is architecturally different from serwise/radix: it does **not** use nexus's `/api/auth/*` phone/OTP contract at all. It has **three separate, self-contained auth mechanisms**, and talks to nexus only for data (via its own service-to-service JWT). Read this before touching any login/session/token code here — none of nexus's or the other apps' auth docs apply to this codebase.
+Watchtower is architecturally different from serwise/radix: it does **not** use nexus's `/api/auth/*` phone/OTP contract at all. It has **two separate, self-contained auth mechanisms** (a third, the `/admin` email/password CMS login, was removed on 2026-11-01 — see §3), and talks to nexus only for data (via its own service-to-service JWT). Read this before touching any login/session/token code here — none of nexus's or the other apps' auth docs apply to this codebase.
 
 Last verified against the codebase: 2026-09-07. There is **no `middleware.ts`** anywhere in this app — every protected page/action guards itself individually. Keep that in mind: there's no single choke point to add a global check to.
 
 ---
 
-## 1. The Three Mechanisms, At a Glance
+## 1. The Mechanisms, At a Glance
 
 | # | Who uses it | Login method | Session | Cookie |
 |---|---|---|---|---|
-| 1 | Root panel operators (`/`, `/tickets`, `/customers`, etc.) | Phone → OTP → WebAuthn/passkey | `ROOT_JWT_SECRET`-signed JWT, 7 days | `watchtower_root_session` |
-| 2 | CMS admins (`/admin/*`) | Email + password (bcrypt) | `ADMIN_JWT_SECRET`-signed JWT, 7 days | `watchtower_session` |
+| 1 | Operators — the whole panel (`/tickets`, `/customers`, …), the CMS (`/cms/*`) and `/operators` | Phone → OTP → WebAuthn/passkey | `ROOT_JWT_SECRET`-signed JWT, 7 days | `watchtower_root_session` |
+| 2 | ~~CMS admins (`/admin/*`)~~ — removed 2026-11-01 | — | — | — |
 | 3 | Machine callers (`/api/*`, `/graphql`) | Static bearer API token (Strapi-compatible) | None — stateless per-request | N/A |
 
-Mechanisms 1 and 2 both ultimately point at the same underlying `admin_users` table (a root operator row has an `admin_user_id` FK), but their login/session/verification code paths are fully independent — one account *can* be both a CMS login and a root-panel login, but nothing in the code assumes that pairing.
+Every operator row (`watchtower_root_operators`) still points at an `admin_users` row (`admin_user_id` FK): the root session carries that id as `adminUserId`, and content-manager edits are author-stamped with it. `admin_users` rows no longer need (or use) a password.
 
 Watchtower also calls **nexus** for data (customers, providers, devices, complaints) via `src/lib/nexus/client.ts`'s `nexusFetch` — this mints its own short-lived service JWT (`role: 'ADMIN'`, signed with `NEXUS_JWT_SECRET`) and is unrelated to any of the three mechanisms above; it never touches nexus's user-facing `/api/auth/*` endpoints.
 
@@ -55,20 +55,14 @@ There's a second logout-shaped route, `GET /api/force-logout` (`src/app/api/forc
 
 ---
 
-## 3. Mechanism 2 — CMS Admin (Email/Password)
+## 3. Mechanism 2 — CMS Admin (Email/Password) — REMOVED 2026-11-01
 
-Entry point: `/admin/login` → `src/app/admin/login/page.tsx`.
+The `/admin` Strapi-style panel and its email/password login (`watchtower_session` cookie, `ADMIN_JWT_SECRET`, `admin-session.ts`, `admin-users.ts`, the `/admin/users` screen and the `/admin/**` IP-allowlist `middleware.ts`) were deleted. The content manager and media library moved to `/cms/*` behind the root session; operator management moved to `/operators`.
 
-`loginAction` (`src/app/admin/login/actions.ts:11-31`):
-- `verifyAdminCredentials(email, password)` (`src/lib/auth/admin-session.ts:38-44`) — looks up `admin_users` by `{ email, is_active: true, blocked: false }`, `bcrypt.compare`. Any failure (no user, no password hash, mismatch) → the same generic `'Invalid email or password'` (`actions.ts:18`) — correctly doesn't distinguish "no such user" from "wrong password."
-- Success → `signSession({ sub: user.id, email })`, `ADMIN_JWT_SECRET`, `expiresIn: '7d'`. Cookie `watchtower_session`: same flags as the root session, but the `60*60*24*7` maxAge is a **hardcoded literal here** rather than a shared named constant (unlike `root-session.ts`'s exported `ROOT_SESSION_MAX_AGE`).
-- `redirect('/admin/content-manager')`.
-
-### Session verification
-`src/app/admin/(dashboard)/layout.tsx:14-17` is the **single choke point** for the whole `/admin/(dashboard)/*` tree — the closest thing to middleware in this app, but it's a route-group layout, not `middleware.ts`. Server Actions under that tree additionally self-guard via a local `requireAdminSession()` helper (`operators/actions.ts:10-16`, `users/actions.ts:8-14`) as defense-in-depth, since Server Actions can in principle be invoked directly, bypassing a layout that only runs on page navigation.
-
-### Logout
-`logoutAction` (`admin/login/actions.ts:33-37`) — deletes `watchtower_session`, redirects to `/admin/login`. Simple, correct.
+### How `/cms` is guarded now
+- `src/app/cms/layout.tsx` — `getRootSession()` → `redirect('/')` if null. One choke point for every `/cms/*` page.
+- Every `/cms` and `/operators` Server Action calls `requireRootSession()` (`src/lib/auth/require-root-session.ts`) first, because Server Actions are directly-callable POST endpoints that a layout redirect doesn't cover. (The old `/admin` content-manager and media-library actions had **no** guard of their own — they relied on the layout plus the IP middleware.)
+- `/cms` only edits presentation content types (`src/app/cms/content-types.ts`); plans, addons and service parts stay on `/pricing` (Device Types moved into `/cms` on 2026-11-01).
 
 ---
 
@@ -92,13 +86,13 @@ No logout concept — revocation is deleting/expiring the `strapi_api_tokens` ro
 
 Admin-initiated, not self-service. Flow:
 
-1. **Provisioning** (`/admin/operators`, admin-session-guarded): `createOperatorAction` links an existing `admin_users.id` to a phone number (`watchtower_root_operators` row).
+1. **Provisioning** (`/operators`, root-session-guarded): `createOperatorAction` → `createOperatorWithAccount` takes name + email + phone, reuses an `admin_users` row with that email if it has no operator yet (else creates a password-less one), and inserts the `watchtower_root_operators` row in the same transaction. An operator can't deactivate their own row (it would lock them out).
 2. **Enrollment link**: `generateEnrollmentAction` → `createEnrollment` (`src/lib/auth/enrollment.ts:6-13`) — a proper CSPRNG token (`crypto.randomBytes(24)`, unlike the OTP code), 15-minute TTL, stored in `watchtower_passkey_enrollments`. Link = `${WEBAUTHN_ORIGIN}/enroll/${token}`.
 3. **Operator visits `/enroll/[token]`**: `checkEnrollment` validates (not-found / already-used / expired), renders `EnrollForm`.
 4. **Passkey registration ceremony**: `getRegistrationOptionsAction` → `buildRegistrationOptions` (excludes already-registered credentials) → browser `startRegistration()` → `completeEnrollmentAction` → `verifyRegistration` (`webauthn.ts:73-105`) inserts the new `watchtower_webauthn_credentials` row and `markEnrollmentUsed` makes the link single-use.
 5. Redirects to `/` to log in for real.
 
-Revocation (`revokeCredentialAction`, admin-session-guarded) hard-deletes the credential row — **there is no operator self-revoke for a lost device**, only an already-authenticated CMS admin can do it.
+Revocation (`revokeCredentialAction`, root-session-guarded) hard-deletes the credential row — **there is no self-service revoke for a lost device**; another signed-in operator does it from `/operators`.
 
 ---
 
@@ -106,15 +100,14 @@ Revocation (`revokeCredentialAction`, admin-session-guarded) hard-deletes the cr
 
 | Surface | Guard | Mechanism |
 |---|---|---|
-| `/`, `/tickets`, `/customers`, `/customers/[id]`, `/providers`, `/pricing`, `/device-types`, `/provider-tiers`, `/audit-log`, `/cms` | Each page independently: read cookie → `verifyRootSession` → `redirect('/')` if null | Root session |
-| `/admin` (index) | Dispatches to `/admin/content-manager` or `/admin/login` based on session | Admin session |
-| `/admin/(dashboard)/*` | `layout.tsx:14-17` — the one real choke point | Admin session |
-| Admin server actions (operators, users) | `requireAdminSession()` helper, per-action | Admin session (defense-in-depth) |
+| `/`, `/tickets`, `/customers`, `/customers/[id]`, `/providers`, `/pricing`, `/provider-tiers`, `/audit-log`, `/operators` | Each page independently: read cookie → `verifyRootSession` → `redirect('/')` if null | Root session |
+| `/cms/*` | `src/app/cms/layout.tsx` — one choke point for the whole CMS | Root session |
+| `/cms` + `/operators` server actions | `requireRootSession()` per action | Root session |
 | `/api/[...slug]` | `authorize()` helper, authenticate + scope-authorize, every verb | API token |
 | `/graphql` | Authenticate only, **no scope check** (§7.1) | API token |
 | `/enroll/[token]` | `checkEnrollment` (not a session — a one-time token) | Enrollment token |
 
-Every JWT-verify helper (`verifyRootSession`, `verifySession`, the WebAuthn challenge verifiers) uses a blanket `catch { return null }` — "expired," "tampered," and "wrong purpose" are all indistinguishable to the caller. Defensible for not leaking specifics, but makes debugging session issues harder (see §7.6).
+Every JWT-verify helper (`verifyRootSession`, the WebAuthn challenge verifiers) uses a blanket `catch { return null }` — "expired," "tampered," and "wrong purpose" are all indistinguishable to the caller. Defensible for not leaking specifics, but makes debugging session issues harder (see §7.6).
 
 ---
 
@@ -127,14 +120,14 @@ Split the way the nexus doc does — small/contained vs. bigger/deliberate — s
 - [ ] **GraphQL never calls `authorizeApiToken`.** `src/app/graphql/route.ts:12-18` authenticates but doesn't scope-check — a `read-only` or restricted `custom` token can run any GraphQL query/mutation the schema exposes. The REST catch-all does this correctly (`api-token.ts:75`, called per-verb); GraphQL needs the equivalent, likely via a resolver-wrapping or field-level check since Yoga's `context()` only runs once per request, not per-field.
 - [ ] **`API_TOKEN_SALT` unset throws uncaught inside `authenticateApiToken`** (`api-token.ts:40-41`), bypassing its own `{authenticated:false}` contract — a missing env var would surface as an unhandled 500 instead of a clean 401. Wrap it.
 - [ ] **`requirePendingOperator()`'s specific error message gets swallowed** in the passkey ceremony's generic `try/catch` (`LoginForm.tsx:49-63`) — a legitimately expired phone-verification step shows "Passkey ceremony was cancelled or failed on this device" instead of "start over," which sends the user down the wrong troubleshooting path. Have the client distinguish this thrown error from a genuine WebAuthn ceremony failure.
-- [ ] **Hardcoded 7-day literal in `admin/login/actions.ts:27`** instead of a shared exported constant (root-session.ts already has `ROOT_SESSION_MAX_AGE` for this exact purpose) — cosmetic but easy to fix, and prevents the two session lifetimes silently drifting apart if one is ever changed without noticing the other.
+- [x] ~~Hardcoded 7-day literal in `admin/login/actions.ts`~~ — moot: the admin login was removed 2026-11-01.
 - [ ] **Confirm none of the three hardcoded test phone numbers (`1234567890`, `9112345678`, `7016301968`) are real operators' phones in production data.** The bypass is gated on the number *also* being an active operator row, so this is low-actual-risk today, but it's an easy thing to accidentally violate later when provisioning a new operator.
 
 ### 7.2 Advanced — bigger effort, security-relevant, do deliberately
 
-- [ ] **No rate limiting anywhere** (confirmed via repo-wide grep, zero hits) — OTP requests, OTP verify attempts, and CMS password login attempts are all unthrottled beyond the per-OTP-record 5-attempt cap (which resets on every new OTP request, so it's not a real brake on a determined attacker). This is the same gap flagged for nexus (nexus docs §8.1) but arguably more urgent here since a CMS admin password is a much higher-value target than a customer's OTP.
+- [ ] **No rate limiting anywhere** (confirmed via repo-wide grep, zero hits) — OTP requests and OTP verify attempts are unthrottled beyond the per-OTP-record 5-attempt cap (which resets on every new OTP request, so it's not a real brake on a determined attacker). This is the same gap flagged for nexus (nexus docs §8.1); the passkey step limits the damage on prod.
 - [ ] **OTP code uses `Math.random()`, not a CSPRNG** (`otp.ts:24`). Weak for a 6-digit auth code on its own merits, though mitigated by bcrypt-at-rest + 10-min TTL + attempt cap. Swap for `crypto.randomInt()`.
-- [ ] **No session revocation.** Both session types are stateless 7-day JWTs with no DB-backed session table, no `jti`, no revocation list. Deactivating an operator or admin user does **not** invalidate their already-issued session — they stay logged in up to 7 more days. Revoking a WebAuthn credential doesn't touch existing sessions either, only blocks future logins. If "deactivate this admin immediately" is ever a real operational need, this needs a session table + a per-request revocation check (accepting the latency/complexity tradeoff), not just a JWT `exp` claim.
+- [ ] **No session revocation.** The root session is a stateless 7-day JWTs with no DB-backed session table, no `jti`, no revocation list. Deactivating an operator or admin user does **not** invalidate their already-issued session — they stay logged in up to 7 more days. Revoking a WebAuthn credential doesn't touch existing sessions either, only blocks future logins. If "deactivate this admin immediately" is ever a real operational need, this needs a session table + a per-request revocation check (accepting the latency/complexity tradeoff), not just a JWT `exp` claim.
 - [ ] **`nexusFetch`'s 401-handling conflates "operator session is bad" with "NEXUS_JWT_SECRET is misconfigured on either side."** Both currently force-logout every root operator simultaneously (the code's own comment at `client.ts:55-60` acknowledges this as a known, accepted tradeoff) — a secret rotation or clock-skew issue on either service would look like a mass session-expiry incident. Worth a distinct "nexus unreachable/misconfigured" state if this ever actually happens in practice.
 - [ ] **No CSRF token mechanism** beyond Next.js Server Actions' same-origin protections + `sameSite: 'lax'` cookies. Reasonable default for this app shape, but should be an explicit, documented decision rather than an implicit one if this app's threat model ever gets a formal review.
 - [ ] **`checkEnrollment` is check-only, not atomic-consume** — called 3 separate times across the enrollment flow before the final `markEnrollmentUsed`. A narrow TOCTOU window exists where two concurrent completions of the same not-yet-consumed token could both attempt registration. Low real-world likelihood, but if enrollment is ever exposed more broadly (e.g. bulk operator onboarding), make the final consume step atomic (a single `UPDATE ... WHERE used_at IS NULL RETURNING ...`) rather than check-then-act.
@@ -147,7 +140,6 @@ Split the way the nexus doc does — small/contained vs. bigger/deliberate — s
 | Variable | Purpose |
 |---|---|
 | `ROOT_JWT_SECRET` | Signs/verifies root pending tokens, root session JWTs, and WebAuthn challenge tokens (all three share this secret). |
-| `ADMIN_JWT_SECRET` | Signs/verifies the CMS admin session JWT. |
 | `API_TOKEN_SALT` | HMAC-SHA512 salt for hashing incoming bearer tokens (Strapi-compatible scheme). |
 | `HANUOTP_API_KEY` | HanuOTP SMS provider key for root-login OTP delivery — separate credential/integration from nexus's own. |
 | `HANUOTP_TEMPLATE_SID` | HanuOTP SMS template ID (defaults to `'default'`). |
@@ -174,14 +166,11 @@ src/lib/auth/root-session.ts                        — root session/pending coo
 src/lib/auth/enrollment.ts                          — enrollment token lifecycle (create/check/mark-used)
 src/app/enroll/[token]/{page,actions,EnrollForm}.tsx — passkey enrollment/registration flow
 src/app/api/force-logout/route.ts                    — clears root cookies from contexts that can't mutate them directly
-src/app/tickets/, customers/, providers/, pricing/, device-types/, provider-tiers/, audit-log/, cms/ (page.tsx each) — root-session-protected pages, each self-guarding
-src/app/admin/login/{page,actions}.tsx              — CMS email/password login + logout
-src/lib/auth/admin-session.ts                       — admin cookie name, JWT sign/verify, credential check
-src/lib/auth/admin-users.ts                          — admin_users CRUD
-src/app/admin/page.tsx                              — "/admin" dispatcher
-src/app/admin/(dashboard)/layout.tsx                — the one real choke-point guard for the CMS admin area
-src/app/admin/(dashboard)/operators/actions.ts      — operator management (admin-session-guarded)
-src/app/admin/(dashboard)/users/actions.ts          — admin_users management (admin-session-guarded)
+src/app/tickets/, customers/, providers/, pricing/, provider-tiers/, audit-log/, operators/ (page.tsx each) — root-session-protected pages, each self-guarding
+src/lib/auth/require-root-session.ts                 — getRootSession() for pages/layouts, requireRootSession() for server actions
+src/app/cms/layout.tsx                               — the one choke-point guard for every /cms page
+src/app/cms/content-types.ts                         — which content types /cms may edit
+src/app/operators/actions.ts                         — operator management (root-session-guarded)
 src/lib/auth/api-token.ts                            — Strapi-compatible API token hash/authenticate/authorize
 src/app/api/[...slug]/route.ts                      — REST catch-all, authenticates + authorizes per verb
 src/app/graphql/route.ts                             — GraphQL endpoint, authenticates only (see §7.1 gap)
@@ -194,4 +183,5 @@ docs/authentication.md                               — this file
 
 ## 10. Change Log
 
+- **2026-11-01** — Removed the `/admin` panel and its email/password login (mechanism 2), `ADMIN_JWT_SECRET`, `WATCHTOWER_ADMIN_ALLOWED_IPS` and `middleware.ts`. The Strapi-style CMS now lives at `/cms` behind the root session; operators are managed at `/operators` (add flow now creates the `admin_users` row itself). Added `requireRootSession()` to every CMS/operators server action — the moved content-manager and media-library actions previously had no per-action guard.
 - **2026-09-07** — Initial documentation pass. No code changes made to watchtower in this session — this doc was written from a direct code audit alongside the nexus/serwise/radix authentication docs. §7 gaps (especially §7.1's GraphQL authorization gap and §7.2's rate-limiting/session-revocation gaps) are pre-existing and unaddressed; flagging them here is the first record of them.

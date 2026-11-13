@@ -1,0 +1,107 @@
+{
+  "collectionName": "components_web_add_moneys",
+  "info": {
+    "displayName": "Add to Wallet Popup",
+    "description": "Popup opened by a dashboard tile set to “add-money”: quick amounts, custom amount, payment messages and colours. {min} and {max} are filled in."
+  },
+  "options": {},
+  "attributes": {
+    "title": {
+      "type": "string"
+    },
+    "amounts": {
+      "type": "component",
+      "repeatable": true,
+      "component": "web.wallet-amount"
+    },
+    "customPlaceholder": {
+      "type": "string"
+    },
+    "minAmount": {
+      "type": "integer"
+    },
+    "maxAmount": {
+      "type": "integer"
+    },
+    "amountErrorText": {
+      "type": "string"
+    },
+    "continueLabel": {
+      "type": "string"
+    },
+    "note": {
+      "type": "text"
+    },
+    "paymentDescription": {
+      "type": "string"
+    },
+    "processingText": {
+      "type": "string"
+    },
+    "successText": {
+      "type": "string"
+    },
+    "pendingText": {
+      "type": "string"
+    },
+    "failureText": {
+      "type": "string"
+    },
+    "chipBackground": {
+      "type": "customField",
+      "customField": "plugin::color-picker.color",
+      "options": {
+        "format": "hex"
+      }
+    },
+    "chipTextColor": {
+      "type": "customField",
+      "customField": "plugin::color-picker.color",
+      "options": {
+        "format": "hex"
+      }
+    },
+    "selectedBackground": {
+      "type": "customField",
+      "customField": "plugin::color-picker.color",
+      "options": {
+        "format": "hex"
+      }
+    },
+    "selectedTextColor": {
+      "type": "customField",
+      "customField": "plugin::color-picker.color",
+      "options": {
+        "format": "hex"
+      }
+    },
+    "placeholderColor": {
+      "type": "customField",
+      "customField": "plugin::color-picker.color",
+      "options": {
+        "format": "hex"
+      }
+    },
+    "buttonBackground": {
+      "type": "customField",
+      "customField": "plugin::color-picker.color",
+      "options": {
+        "format": "hex"
+      }
+    },
+    "buttonTextColor": {
+      "type": "customField",
+      "customField": "plugin::color-picker.color",
+      "options": {
+        "format": "hex"
+      }
+    },
+    "noteColor": {
+      "type": "customField",
+      "customField": "plugin::color-picker.color",
+      "options": {
+        "format": "hex"
+      }
+    }
+  }
+}

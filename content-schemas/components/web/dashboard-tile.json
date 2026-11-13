@@ -1,0 +1,55 @@
+{
+  "collectionName": "components_web_dashboard_tiles",
+  "info": {
+    "displayName": "Dashboard Tile",
+    "description": "One quick tile on the signed-in dashboard (label, picture and what a click does)"
+  },
+  "options": {},
+  "attributes": {
+    "label": {
+      "type": "string"
+    },
+    "image": {
+      "type": "media",
+      "multiple": false,
+      "required": false,
+      "allowedTypes": [
+        "images"
+      ]
+    },
+    "imageWidth": {
+      "type": "integer"
+    },
+    "imageHeight": {
+      "type": "integer"
+    },
+    "action": {
+      "type": "enumeration",
+      "enum": [
+        "app",
+        "link",
+        "call",
+        "magic-booking",
+        "addresses",
+        "add-money",
+        "order-history",
+        "none"
+      ],
+      "default": "app"
+    },
+    "href": {
+      "type": "string"
+    },
+    "handoffTitle": {
+      "type": "string"
+    },
+    "showOpenIcon": {
+      "type": "boolean",
+      "default": false
+    },
+    "hidden": {
+      "type": "boolean",
+      "default": false
+    }
+  }
+}

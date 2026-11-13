@@ -1,0 +1,14 @@
+{
+  "collectionName": "components_web_list_items",
+  "info": {
+    "displayName": "List Item",
+    "description": "One line of text in a list"
+  },
+  "options": {},
+  "attributes": {
+    "text": {
+      "type": "string",
+      "required": true
+    }
+  }
+}

@@ -1,5 +1,7 @@
 'use server';
 
+import { requireRootSession } from '@/lib/auth/require-root-session';
+
 import { revalidatePath, updateTag } from 'next/cache';
 import {
   fetchCustomer,
@@ -17,18 +19,22 @@ import { autocompleteAddress, fetchPlaceDetails, reverseGeocodeAddress, type Add
 import { logAudit } from '@/lib/audit/log';
 
 export async function searchAddressAction(query: string): Promise<AddressPrediction[]> {
+  await requireRootSession();
   return autocompleteAddress(query);
 }
 
 export async function reverseGeocodeAction(lat: number, lng: number): Promise<AddressPrediction | null> {
+  await requireRootSession();
   return reverseGeocodeAddress(lat, lng);
 }
 
 export async function placeDetailsAction(placeId: string): Promise<AddressPrediction | null> {
+  await requireRootSession();
   return fetchPlaceDetails(placeId).catch(() => null);
 }
 
 export async function updateCustomerAction(id: string, input: UpdateCustomerInput): Promise<NexusCustomerDetail> {
+  await requireRootSession();
   const before = await fetchCustomer(id).catch(() => null);
   const customer = await updateCustomer(id, input);
   revalidatePath(`/customers/${id}`);
@@ -46,6 +52,7 @@ export async function updateCustomerAction(id: string, input: UpdateCustomerInpu
 }
 
 export async function createAddressAction(customerId: string, input: CustomerAddressInput): Promise<NexusCustomerAddress> {
+  await requireRootSession();
   const address = await createCustomerAddress(customerId, input);
   revalidatePath(`/customers/${customerId}`);
   updateTag(`customer:${customerId}`);
@@ -64,6 +71,7 @@ export async function updateAddressAction(
   addressId: string,
   input: Partial<CustomerAddressInput>,
 ): Promise<NexusCustomerAddress> {
+  await requireRootSession();
   const beforeCustomer = await fetchCustomer(customerId).catch(() => null);
   const before = beforeCustomer?.addresses.find((a) => a.id === addressId) ?? null;
   const address = await updateCustomerAddress(customerId, addressId, input);
@@ -81,6 +89,7 @@ export async function updateAddressAction(
 }
 
 export async function archiveAddressAction(customerId: string, addressId: string): Promise<void> {
+  await requireRootSession();
   await archiveCustomerAddress(customerId, addressId);
   revalidatePath(`/customers/${customerId}`);
   updateTag(`customer:${customerId}`);
@@ -88,6 +97,7 @@ export async function archiveAddressAction(customerId: string, addressId: string
 }
 
 export async function restoreAddressAction(customerId: string, addressId: string): Promise<void> {
+  await requireRootSession();
   await restoreCustomerAddress(customerId, addressId);
   revalidatePath(`/customers/${customerId}`);
   updateTag(`customer:${customerId}`);

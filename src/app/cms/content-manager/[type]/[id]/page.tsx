@@ -1,0 +1,104 @@
+import { notFound } from 'next/navigation';
+import { allComponents, ensureSchemaRegistry, getContentType, slugForContentType } from '@/lib/content-schema/registry';
+import { isCmsContentType, resolveCmsContentTypeSlug } from '../../../content-types';
+import { findEntityByDocumentId, findSingleType, getEntityAuthorNames, listEntities } from '@/lib/db/entity-repository';
+import { prisma } from '@/lib/db/prisma';
+import type { ComponentDef, MediaLibraryFile, RelationOption } from './AttributeField';
+import EntityForm from './EntityForm';
+
+const LABEL_FIELD_CANDIDATES = ['name', 'label', 'title', 'key'];
+
+function labelFor(row: Record<string, unknown>): string {
+  for (const field of LABEL_FIELD_CANDIDATES) {
+    if (typeof row[field] === 'string' && row[field]) return row[field] as string;
+  }
+  return String(row.documentId ?? row.id);
+}
+
+export default async function EntityEditPage({ params }: { params: Promise<{ type: string; id: string }> }) {
+  const { type, id } = await params;
+  await ensureSchemaRegistry();
+  const schema = resolveCmsContentTypeSlug(type);
+  if (!schema) notFound();
+
+  let entity: Record<string, unknown> | null = null;
+  if (schema.kind === 'singleType') {
+    entity = await findSingleType(schema.uid, { status: 'draft' });
+  } else if (id !== 'new') {
+    entity = await findEntityByDocumentId(schema.uid, id, { status: 'draft' });
+    if (!entity) notFound();
+  }
+
+  // A document is "modified" once its draft row has been edited after the published row was
+  // last written — same signal Strapi's own DocumentStatus badge uses to distinguish a stale
+  // published entry from one whose draft exactly matches what's live.
+  let documentStatus: 'draft' | 'published' | 'modified' = 'draft';
+  if (schema.draftAndPublish && entity) {
+    const published =
+      schema.kind === 'singleType'
+        ? await findSingleType(schema.uid, { status: 'published' })
+        : await findEntityByDocumentId(schema.uid, id, { status: 'published' });
+    if (published) {
+      const draftUpdatedAt = entity.updatedAt ? new Date(entity.updatedAt as string).getTime() : 0;
+      const publishedUpdatedAt = published.updatedAt ? new Date(published.updatedAt as string).getTime() : 0;
+      documentStatus = draftUpdatedAt > publishedUpdatedAt ? 'modified' : 'published';
+    }
+  }
+
+  const authors = entity
+    ? await getEntityAuthorNames(schema.collectionName, entity.id as number)
+    : { createdBy: null, updatedBy: null };
+
+  const relationOptions: Record<string, RelationOption[]> = {};
+  for (const [name, field] of Object.entries(schema.attributes)) {
+    if (field.kind !== 'relation') continue;
+    const targetSchema = getContentType(field.target);
+    // Core-data targets (e.g. device types) are pickable but not editable in /cms, so no link.
+    const targetSlug = isCmsContentType(field.target) ? slugForContentType(targetSchema) : null;
+    // Query drafts explicitly so a draftAndPublish relation target never offers duplicate
+    // draft+published options for the same document (none of today's relation targets are
+    // draftAndPublish, but this keeps the picker correct if that ever changes).
+    const targetList = await listEntities(field.target, { pageSize: 200, status: targetSchema.draftAndPublish ? 'draft' : undefined });
+    relationOptions[name] = targetList.data.map((row) => ({
+      id: row.id as number,
+      documentId: row.documentId as string,
+      label: labelFor(row as Record<string, unknown>),
+      targetSlug,
+    }));
+  }
+
+  const components: Record<string, ComponentDef> = {};
+  for (const component of allComponents()) {
+    components[component.uid] = { displayName: component.displayName, attributes: component.attributes };
+  }
+
+  const mediaFiles = await prisma.files.findMany({ orderBy: { created_at: 'desc' }, take: 200 });
+  const mediaLibrary: MediaLibraryFile[] = mediaFiles.map((f) => ({
+    id: f.id,
+    url: f.url ?? '',
+    name: f.name ?? '',
+    mime: f.mime ?? '',
+    alternativeText: f.alternative_text ?? null,
+    ext: f.ext,
+    width: f.width,
+    height: f.height,
+    size: f.size != null ? Number(f.size) : null,
+  }));
+
+  return (
+    <EntityForm
+      slug={type}
+      id={schema.kind === 'singleType' ? 'edit' : id}
+      displayName={schema.displayName}
+      attributes={schema.attributes}
+      draftAndPublish={schema.draftAndPublish}
+      entity={entity}
+      documentStatus={documentStatus}
+      isSingleType={schema.kind === 'singleType'}
+      authors={authors}
+      components={components}
+      relationOptions={relationOptions}
+      mediaLibrary={mediaLibrary}
+    />
+  );
+}

@@ -1,0 +1,145 @@
+{
+  "collectionName": "components_web_tickets",
+  "info": {
+    "displayName": "Ticket",
+    "icon": "ticket",
+    "description": "Website ticket page (shown after a paid Magic Booking) — headings, stage names, button labels and colours. {count}, {appliance} and {n} are filled in live. Lives on the “ticket” web page."
+  },
+  "options": {},
+  "attributes": {
+    "raisedTitle": {
+      "type": "string"
+    },
+    "ticketTitle": {
+      "type": "string"
+    },
+    "goBackLabel": {
+      "type": "string"
+    },
+    "ticketDetailsTitle": {
+      "type": "string"
+    },
+    "addressDetailsLabel": {
+      "type": "string"
+    },
+    "otherAddressLabel": {
+      "type": "string"
+    },
+    "changeLabel": {
+      "type": "string"
+    },
+    "applianceDetailsLabel": {
+      "type": "string"
+    },
+    "quantityText": {
+      "type": "string"
+    },
+    "addDetailsLabel": {
+      "type": "string"
+    },
+    "ticketUpdateTitle": {
+      "type": "string"
+    },
+    "providerDetailsLabel": {
+      "type": "string"
+    },
+    "noProviderText": {
+      "type": "string"
+    },
+    "providerRoleText": {
+      "type": "string"
+    },
+    "sendMessageLabel": {
+      "type": "string"
+    },
+    "tagsNotesLabel": {
+      "type": "string"
+    },
+    "ticketTabLabel": {
+      "type": "string"
+    },
+    "errorText": {
+      "type": "string"
+    },
+    "stageAssigning": {
+      "type": "string"
+    },
+    "stageEntrance": {
+      "type": "string"
+    },
+    "stageEstimating": {
+      "type": "string"
+    },
+    "stageApproval": {
+      "type": "string"
+    },
+    "stageInProgress": {
+      "type": "string"
+    },
+    "stagePayment": {
+      "type": "string"
+    },
+    "stageCompleted": {
+      "type": "string"
+    },
+    "stageRejected": {
+      "type": "string"
+    },
+    "pageBackground": {
+      "type": "customField",
+      "customField": "plugin::color-picker.color",
+      "options": {
+        "format": "hex"
+      }
+    },
+    "headerBackground": {
+      "type": "customField",
+      "customField": "plugin::color-picker.color",
+      "options": {
+        "format": "hex"
+      }
+    },
+    "accentColor": {
+      "type": "customField",
+      "customField": "plugin::color-picker.color",
+      "options": {
+        "format": "hex"
+      }
+    },
+    "cardBackground": {
+      "type": "customField",
+      "customField": "plugin::color-picker.color",
+      "options": {
+        "format": "hex"
+      }
+    },
+    "borderColor": {
+      "type": "customField",
+      "customField": "plugin::color-picker.color",
+      "options": {
+        "format": "hex"
+      }
+    },
+    "mutedColor": {
+      "type": "customField",
+      "customField": "plugin::color-picker.color",
+      "options": {
+        "format": "hex"
+      }
+    },
+    "chipBackground": {
+      "type": "customField",
+      "customField": "plugin::color-picker.color",
+      "options": {
+        "format": "hex"
+      }
+    },
+    "chipTextColor": {
+      "type": "customField",
+      "customField": "plugin::color-picker.color",
+      "options": {
+        "format": "hex"
+      }
+    }
+  }
+}
