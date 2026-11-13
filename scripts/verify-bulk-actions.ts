@@ -1,5 +1,5 @@
 
-import { bulkDeleteAction, bulkPublishAction, bulkUnpublishAction } from '../src/app/admin/(dashboard)/content-manager/[type]/bulkActions';
+import { bulkDeleteAction, bulkPublishAction, bulkUnpublishAction } from '../src/app/cms/content-manager/[type]/bulkActions';
 import { createEntity, deleteEntity, findEntityByDocumentId } from '../src/lib/db/entity-repository';
 import { prisma } from '../src/lib/db/prisma';
 

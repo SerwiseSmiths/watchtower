@@ -1,0 +1,53 @@
+{
+  "collectionName": "components_web_dial_items",
+  "info": {
+    "displayName": "Service Dial Item",
+    "description": "One icon in the dashboard's Service Dial"
+  },
+  "options": {},
+  "attributes": {
+    "label": {
+      "type": "string",
+      "required": true
+    },
+    "image": {
+      "type": "media",
+      "multiple": false,
+      "required": false,
+      "allowedTypes": [
+        "images"
+      ]
+    },
+    "imageShadow": {
+      "type": "boolean",
+      "default": true
+    },
+    "action": {
+      "type": "enumeration",
+      "enum": [
+        "app",
+        "link",
+        "call",
+        "magic-booking",
+        "none"
+      ],
+      "default": "app"
+    },
+    "href": {
+      "type": "string"
+    },
+    "deviceKey": {
+      "type": "enumeration",
+      "enum": [
+        "air_conditioner",
+        "fridge",
+        "washing_machine",
+        "master_purifier",
+        "geyser"
+      ]
+    },
+    "handoffTitle": {
+      "type": "string"
+    }
+  }
+}

@@ -1,5 +1,7 @@
 'use server';
 
+import { requireRootSession } from '@/lib/auth/require-root-session';
+
 import { revalidatePath } from 'next/cache';
 import { prisma } from '@/lib/db/prisma';
 import { uploadToCloudinary } from '@/lib/media/cloudinary';
@@ -77,52 +79,61 @@ async function createPublished(uid: string, data: Record<string, unknown>) {
 }
 
 export async function createSubscriptionPlanAction(input: SubscriptionPlanInput) {
+  await requireRootSession();
   const entity = await createPublished(PLAN_UID, { ...input });
   revalidatePath('/pricing');
   return entity;
 }
 
 export async function updateSubscriptionPlanAction(id: number, input: Partial<SubscriptionPlanInput>) {
+  await requireRootSession();
   const entity = await updateEntity(PLAN_UID, id, { ...input });
   revalidatePath('/pricing');
   return entity;
 }
 
 export async function deleteSubscriptionPlanAction(id: number) {
+  await requireRootSession();
   await deleteEntity(PLAN_UID, id);
   revalidatePath('/pricing');
 }
 
 export async function createSubscriptionAddonAction(input: SubscriptionAddonInput) {
+  await requireRootSession();
   const entity = await createPublished(ADDON_UID, { ...input });
   revalidatePath('/pricing');
   return entity;
 }
 
 export async function updateSubscriptionAddonAction(id: number, input: Partial<SubscriptionAddonInput>) {
+  await requireRootSession();
   const entity = await updateEntity(ADDON_UID, id, { ...input });
   revalidatePath('/pricing');
   return entity;
 }
 
 export async function deleteSubscriptionAddonAction(id: number) {
+  await requireRootSession();
   await deleteEntity(ADDON_UID, id);
   revalidatePath('/pricing');
 }
 
 export async function createServicePartAction(input: ServicePartInput) {
+  await requireRootSession();
   const entity = await createPublished(PART_UID, { ...input });
   revalidatePath('/pricing');
   return entity;
 }
 
 export async function updateServicePartAction(id: number, input: Partial<ServicePartInput>) {
+  await requireRootSession();
   const entity = await updateEntity(PART_UID, id, { ...input });
   revalidatePath('/pricing');
   return entity;
 }
 
 export async function deleteServicePartAction(id: number) {
+  await requireRootSession();
   await deleteEntity(PART_UID, id);
   revalidatePath('/pricing');
 }
@@ -134,8 +145,9 @@ export interface UploadedImage {
 }
 
 /** Uploads a brand-new image straight to Cloudinary + the files table — same pattern as
- *  device-types/actions.ts's uploadDeviceTypeImageAction, reused here for addon images. */
+ *  the CMS media library's upload action, kept separate so pricing doesn't depend on /cms. */
 export async function uploadPricingImageAction(formData: FormData): Promise<UploadedImage> {
+  await requireRootSession();
   const file = formData.get('file');
   if (!(file instanceof File) || file.size === 0) throw new Error('No file provided');
 
@@ -168,13 +180,16 @@ export async function uploadPricingImageAction(formData: FormData): Promise<Uplo
 // ─── Group (Provider Tier) pricing overrides ───────────────────────────────
 
 export async function fetchTierPricingAction(providerTierId: string): Promise<ServicePartTierPricing[]> {
+  await requireRootSession();
   return listPricingForTier(providerTierId);
 }
 
 export async function upsertPartPricingAction(input: UpsertPartPricingInput): Promise<ServicePartTierPricing> {
+  await requireRootSession();
   return upsertPartPricing(input);
 }
 
 export async function resetPartPricingAction(servicePartId: string, providerTierId: string): Promise<void> {
+  await requireRootSession();
   await resetPartPricing(servicePartId, providerTierId);
 }

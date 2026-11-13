@@ -1,5 +1,7 @@
 'use server';
 
+import { requireRootSession } from '@/lib/auth/require-root-session';
+
 import { revalidatePath, updateTag } from 'next/cache';
 import {
   listDeviceTypeGroups,
@@ -17,6 +19,7 @@ async function findGroup(key: string): Promise<NexusDeviceTypeGroup | null> {
 }
 
 export async function createDeviceTypeGroupAction(input: DeviceTypeGroupInput): Promise<NexusDeviceTypeGroup> {
+  await requireRootSession();
   const group = await createDeviceTypeGroup(input);
   revalidatePath('/device-type-groups');
   updateTag('device-type-groups');
@@ -25,6 +28,7 @@ export async function createDeviceTypeGroupAction(input: DeviceTypeGroupInput): 
 }
 
 export async function updateDeviceTypeGroupAction(key: string, input: Partial<DeviceTypeGroupInput>): Promise<NexusDeviceTypeGroup> {
+  await requireRootSession();
   const before = await findGroup(key);
   const group = await updateDeviceTypeGroup(key, input);
   revalidatePath('/device-type-groups');
@@ -41,6 +45,7 @@ export async function updateDeviceTypeGroupAction(key: string, input: Partial<De
 }
 
 export async function deleteDeviceTypeGroupAction(key: string): Promise<void> {
+  await requireRootSession();
   const before = await findGroup(key);
   await deleteDeviceTypeGroup(key);
   revalidatePath('/device-type-groups');

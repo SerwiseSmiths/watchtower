@@ -1,0 +1,16 @@
+{
+  "collectionName": "components_web_info_blocks_lists",
+  "info": {
+    "displayName": "Info Blocks",
+    "icon": "information",
+    "description": "Website ticket page — list of info blocks (fees, safety, warranty…) with optional banners"
+  },
+  "options": {},
+  "attributes": {
+    "items": {
+      "type": "component",
+      "repeatable": true,
+      "component": "web.info-block"
+    }
+  }
+}

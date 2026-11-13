@@ -1,5 +1,13 @@
 @AGENTS.md
 
+## CMS schemas (`/cms`)
+
+Content types and components are stored in the DB (`watchtower_cms_*` tables), edited at runtime by the
+Content-Type Builder — `content-schemas/*.json` is only the seed/fallback, so don't add a type by adding a
+JSON file. Code that reads schemas must `await ensureSchemaRegistry()` first (`src/lib/content-schema/registry.ts`).
+Schema edits run DDL and are enabled only where `CMS_SCHEMA_EDITING=true` (local/dev); prod receives them via
+`yarn cms:sync-schema`. Details: PROGRESS.md "Phase 7".
+
 ## Ticket / Quote Business Rules
 
 Nexus's `docs/complaint.md` is the source of truth for complaint/quote business rules (state machine, provider assignment, quote flow, audit log) — read it before changing anything in `app/tickets/`. Ticket-relevant highlights, current as of 2026-09-13 (see that doc's §5.1/§6 for full detail):

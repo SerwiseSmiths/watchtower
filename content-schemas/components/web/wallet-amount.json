@@ -1,0 +1,15 @@
+{
+  "collectionName": "components_web_wallet_amounts",
+  "info": {
+    "displayName": "Wallet Amount",
+    "description": "One quick-pick amount (₹) in the Add to Wallet popup"
+  },
+  "options": {},
+  "attributes": {
+    "amount": {
+      "type": "integer",
+      "required": true,
+      "min": 1
+    }
+  }
+}

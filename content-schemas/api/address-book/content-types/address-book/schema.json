@@ -1,0 +1,152 @@
+{
+  "kind": "singleType",
+  "collectionName": "address_books",
+  "info": {
+    "singularName": "address-book",
+    "pluralName": "address-books",
+    "displayName": "Address Book",
+    "description": "Website “Home & Address” sheet on the dashboard: saved-address list and the add / edit form (labels and colours)."
+  },
+  "options": {
+    "draftAndPublish": false
+  },
+  "pluginOptions": {},
+  "attributes": {
+    "title": {
+      "type": "string"
+    },
+    "addCardLabel": {
+      "type": "string"
+    },
+    "editLabel": {
+      "type": "string"
+    },
+    "emptyText": {
+      "type": "string"
+    },
+    "deleteConfirmText": {
+      "type": "string"
+    },
+    "deleteLabel": {
+      "type": "string"
+    },
+    "cancelLabel": {
+      "type": "string"
+    },
+    "addTitle": {
+      "type": "string"
+    },
+    "editTitle": {
+      "type": "string"
+    },
+    "searchPlaceholder": {
+      "type": "string"
+    },
+    "saveAsLabel": {
+      "type": "string"
+    },
+    "homeLabel": {
+      "type": "string"
+    },
+    "officeLabel": {
+      "type": "string"
+    },
+    "otherLabel": {
+      "type": "string"
+    },
+    "houseLabel": {
+      "type": "string"
+    },
+    "housePlaceholder": {
+      "type": "string"
+    },
+    "streetLabel": {
+      "type": "string"
+    },
+    "streetPlaceholder": {
+      "type": "string"
+    },
+    "autofillLabel": {
+      "type": "string"
+    },
+    "autofillPlaceholder": {
+      "type": "string"
+    },
+    "saveLabel": {
+      "type": "string"
+    },
+    "errorText": {
+      "type": "string"
+    },
+    "sheetBackground": {
+      "type": "customField",
+      "customField": "plugin::color-picker.color",
+      "options": {
+        "format": "hex"
+      }
+    },
+    "cardBorderColor": {
+      "type": "customField",
+      "customField": "plugin::color-picker.color",
+      "options": {
+        "format": "hex"
+      }
+    },
+    "titleColor": {
+      "type": "customField",
+      "customField": "plugin::color-picker.color",
+      "options": {
+        "format": "hex"
+      }
+    },
+    "textColor": {
+      "type": "customField",
+      "customField": "plugin::color-picker.color",
+      "options": {
+        "format": "hex"
+      }
+    },
+    "mutedColor": {
+      "type": "customField",
+      "customField": "plugin::color-picker.color",
+      "options": {
+        "format": "hex"
+      }
+    },
+    "chipBackground": {
+      "type": "customField",
+      "customField": "plugin::color-picker.color",
+      "options": {
+        "format": "hex"
+      }
+    },
+    "chipTextColor": {
+      "type": "customField",
+      "customField": "plugin::color-picker.color",
+      "options": {
+        "format": "hex"
+      }
+    },
+    "buttonBackground": {
+      "type": "customField",
+      "customField": "plugin::color-picker.color",
+      "options": {
+        "format": "hex"
+      }
+    },
+    "buttonTextColor": {
+      "type": "customField",
+      "customField": "plugin::color-picker.color",
+      "options": {
+        "format": "hex"
+      }
+    },
+    "deleteColor": {
+      "type": "customField",
+      "customField": "plugin::color-picker.color",
+      "options": {
+        "format": "hex"
+      }
+    }
+  }
+}

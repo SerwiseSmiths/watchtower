@@ -11,6 +11,9 @@ import subscriptionPlanRaw from '../../../content-schemas/api/subscription-plan/
 import welcomeBonusRaw from '../../../content-schemas/api/welcome-bonus/content-types/welcome-bonus/schema.json';
 import webPageRaw from '../../../content-schemas/api/web-page/content-types/web-page/schema.json';
 import loginRaw from '../../../content-schemas/api/login/content-types/login/schema.json';
+import magicFlowRaw from '../../../content-schemas/api/magic-flow/content-types/magic-flow/schema.json';
+import addressBookRaw from '../../../content-schemas/api/address-book/content-types/address-book/schema.json';
+import settingsDrawerRaw from '../../../content-schemas/api/settings-drawer/content-types/settings-drawer/schema.json';
 
 import advertisementRaw from '../../../content-schemas/components/blocks/advertisement.json';
 import heroGridItemRaw from '../../../content-schemas/components/blocks/hero-grid-item.json';
@@ -22,6 +25,8 @@ import transactionsRaw from '../../../content-schemas/components/blocks/transact
 import walletRaw from '../../../content-schemas/components/blocks/wallet.json';
 import whatsNewItemRaw from '../../../content-schemas/components/blocks/whats-new-item.json';
 import whatsNewRaw from '../../../content-schemas/components/blocks/whats-new.json';
+import resolutionStepsRaw from '../../../content-schemas/components/blocks/resolution-steps.json';
+import infoBlocksRaw from '../../../content-schemas/components/blocks/info-blocks.json';
 import infoBlockRaw from '../../../content-schemas/components/complaint/info-block.json';
 import resolutionStepRaw from '../../../content-schemas/components/complaint/resolution-step.json';
 import configEntryRaw from '../../../content-schemas/components/shared/config-entry.json';
@@ -46,8 +51,28 @@ import webSupportRaw from '../../../content-schemas/components/web/support.json'
 import webCounterRaw from '../../../content-schemas/components/web/counter.json';
 import webHelpCtaRaw from '../../../content-schemas/components/web/help-cta.json';
 import webFooterRaw from '../../../content-schemas/components/web/footer.json';
+import webLoginRaw from '../../../content-schemas/components/web/login.json';
+import webDashboardTileRaw from '../../../content-schemas/components/web/dashboard-tile.json';
+import webDialItemRaw from '../../../content-schemas/components/web/dial-item.json';
+import webPlanPreviewRaw from '../../../content-schemas/components/web/plan-preview.json';
+import webDashboardStyleRaw from '../../../content-schemas/components/web/dashboard-style.json';
+import webDashboardRaw from '../../../content-schemas/components/web/dashboard.json';
+import webListItemRaw from '../../../content-schemas/components/web/list-item.json';
+import webSidebarItemRaw from '../../../content-schemas/components/web/sidebar-item.json';
+import webAppSidebarRaw from '../../../content-schemas/components/web/app-sidebar.json';
+import webPlansRaw from '../../../content-schemas/components/web/plans.json';
+import webWalletAmountRaw from '../../../content-schemas/components/web/wallet-amount.json';
+import webAddMoneyRaw from '../../../content-schemas/components/web/add-money.json';
+import webOrderHistoryRaw from '../../../content-schemas/components/web/order-history.json';
+import webBookingApplianceRaw from '../../../content-schemas/components/web/booking-appliance.json';
+import webTicketRaw from '../../../content-schemas/components/web/ticket.json';
+import webResolutionStepRaw from '../../../content-schemas/components/web/resolution-step.json';
+import webResolutionStepsRaw from '../../../content-schemas/components/web/resolution-steps.json';
+import webInfoBlockRaw from '../../../content-schemas/components/web/info-block.json';
+import webInfoBlocksRaw from '../../../content-schemas/components/web/info-blocks.json';
+import webRateCardRaw from '../../../content-schemas/components/web/rate-card.json';
 
-interface RawAttribute {
+export interface RawAttribute {
   type: string;
   required?: boolean;
   unique?: boolean;
@@ -71,7 +96,7 @@ interface RawAttribute {
 /** Strapi's built-in color-picker custom field — a plain string column holding a hex color. */
 const COLOR_CUSTOM_FIELD = 'plugin::color-picker.color';
 
-interface RawSchema {
+export interface RawSchema {
   kind?: 'collectionType' | 'singleType';
   collectionName: string;
   info: { singularName: string; pluralName: string; displayName: string; description?: string };
@@ -137,7 +162,7 @@ function normalizeAttributes(attributes: Record<string, RawAttribute>): Record<s
   return result;
 }
 
-function toContentTypeSchema(raw: RawSchema): ContentTypeSchema {
+export function toContentTypeSchema(raw: RawSchema): ContentTypeSchema {
   return {
     uid: `api::${raw.info.singularName}.${raw.info.singularName}`,
     kind: raw.kind ?? 'collectionType',
@@ -151,13 +176,13 @@ function toContentTypeSchema(raw: RawSchema): ContentTypeSchema {
   };
 }
 
-interface RawComponentSchema {
+export interface RawComponentSchema {
   collectionName: string;
-  info: { displayName: string; description?: string };
+  info: { displayName: string; description?: string; icon?: string };
   attributes: Record<string, RawAttribute>;
 }
 
-function toComponentSchema(uid: string, raw: RawComponentSchema): ComponentSchema {
+export function toComponentSchema(uid: string, raw: RawComponentSchema): ComponentSchema {
   return {
     uid,
     collectionName: raw.collectionName,
@@ -167,52 +192,83 @@ function toComponentSchema(uid: string, raw: RawComponentSchema): ComponentSchem
   };
 }
 
-export const contentTypeSchemas: ContentTypeSchema[] = [
-  toContentTypeSchema(bottomTabRaw as RawSchema),
-  toContentTypeSchema(complaintPageRaw as RawSchema),
-  toContentTypeSchema(deviceTypeRaw as RawSchema),
-  toContentTypeSchema(globalConfigRaw as RawSchema),
-  toContentTypeSchema(pageRaw as RawSchema),
-  toContentTypeSchema(servicePartRaw as RawSchema),
-  toContentTypeSchema(subscriptionAddonRaw as RawSchema),
-  toContentTypeSchema(subscriptionPlanRaw as RawSchema),
-  toContentTypeSchema(welcomeBonusRaw as RawSchema),
-  toContentTypeSchema(webPageRaw as RawSchema),
-  toContentTypeSchema(loginRaw as RawSchema),
+/**
+ * The schema files in `content-schemas/` are the seed for the DB-backed registry
+ * (`watchtower_cms_content_types` / `watchtower_cms_components`, see registry.ts) and the
+ * fallback when those tables don't exist yet. Once seeded, the DB rows are the source of truth —
+ * the Content-Type Builder edits rows, not these files.
+ */
+export const staticRawContentTypes: RawSchema[] = [
+  bottomTabRaw as RawSchema,
+  complaintPageRaw as RawSchema,
+  deviceTypeRaw as RawSchema,
+  globalConfigRaw as RawSchema,
+  pageRaw as RawSchema,
+  servicePartRaw as RawSchema,
+  subscriptionAddonRaw as RawSchema,
+  subscriptionPlanRaw as RawSchema,
+  welcomeBonusRaw as RawSchema,
+  webPageRaw as RawSchema,
+  loginRaw as RawSchema,
+  magicFlowRaw as RawSchema,
+  addressBookRaw as RawSchema,
+  settingsDrawerRaw as RawSchema,
 ];
 
-export const componentSchemas: ComponentSchema[] = [
-  toComponentSchema('blocks.advertisement', advertisementRaw as RawComponentSchema),
-  toComponentSchema('blocks.hero-grid-item', heroGridItemRaw as RawComponentSchema),
-  toComponentSchema('blocks.hero-grid', heroGridRaw as RawComponentSchema),
-  toComponentSchema('blocks.invite-earn', inviteEarnRaw as RawComponentSchema),
-  toComponentSchema('blocks.service-row', serviceRowRaw as RawComponentSchema),
-  toComponentSchema('blocks.services', servicesRaw as RawComponentSchema),
-  toComponentSchema('blocks.transactions', transactionsRaw as RawComponentSchema),
-  toComponentSchema('blocks.wallet', walletRaw as RawComponentSchema),
-  toComponentSchema('blocks.whats-new-item', whatsNewItemRaw as RawComponentSchema),
-  toComponentSchema('blocks.whats-new', whatsNewRaw as RawComponentSchema),
-  toComponentSchema('complaint.info-block', infoBlockRaw as RawComponentSchema),
-  toComponentSchema('complaint.resolution-step', resolutionStepRaw as RawComponentSchema),
-  toComponentSchema('shared.config-entry', configEntryRaw as RawComponentSchema),
-  toComponentSchema('shared.tab-item', tabItemRaw as RawComponentSchema),
-  toComponentSchema('subscription.plan-feature', planFeatureRaw as RawComponentSchema),
-  toComponentSchema('subscription.visit-service', visitServiceRaw as RawComponentSchema),
-  toComponentSchema('web.section-style', webSectionStyleRaw as RawComponentSchema),
-  toComponentSchema('web.text-style', webTextStyleRaw as RawComponentSchema),
-  toComponentSchema('web.button', webButtonRaw as RawComponentSchema),
-  toComponentSchema('web.link', webLinkRaw as RawComponentSchema),
-  toComponentSchema('web.drawer-style', webDrawerStyleRaw as RawComponentSchema),
-  toComponentSchema('web.service-card', webServiceCardRaw as RawComponentSchema),
-  toComponentSchema('web.feature-card', webFeatureCardRaw as RawComponentSchema),
-  toComponentSchema('web.city', webCityRaw as RawComponentSchema),
-  toComponentSchema('web.header', webHeaderRaw as RawComponentSchema),
-  toComponentSchema('web.hero', webHeroRaw as RawComponentSchema),
-  toComponentSchema('web.services-grid', webServicesGridRaw as RawComponentSchema),
-  toComponentSchema('web.feature-grid', webFeatureGridRaw as RawComponentSchema),
-  toComponentSchema('web.app-promo', webAppPromoRaw as RawComponentSchema),
-  toComponentSchema('web.support', webSupportRaw as RawComponentSchema),
-  toComponentSchema('web.counter', webCounterRaw as RawComponentSchema),
-  toComponentSchema('web.help-cta', webHelpCtaRaw as RawComponentSchema),
-  toComponentSchema('web.footer', webFooterRaw as RawComponentSchema),
+export const staticRawComponents: { uid: string; schema: RawComponentSchema }[] = [
+  { uid: 'blocks.advertisement', schema: advertisementRaw as RawComponentSchema },
+  { uid: 'blocks.hero-grid-item', schema: heroGridItemRaw as RawComponentSchema },
+  { uid: 'blocks.hero-grid', schema: heroGridRaw as RawComponentSchema },
+  { uid: 'blocks.invite-earn', schema: inviteEarnRaw as RawComponentSchema },
+  { uid: 'blocks.service-row', schema: serviceRowRaw as RawComponentSchema },
+  { uid: 'blocks.services', schema: servicesRaw as RawComponentSchema },
+  { uid: 'blocks.transactions', schema: transactionsRaw as RawComponentSchema },
+  { uid: 'blocks.wallet', schema: walletRaw as RawComponentSchema },
+  { uid: 'blocks.whats-new-item', schema: whatsNewItemRaw as RawComponentSchema },
+  { uid: 'blocks.whats-new', schema: whatsNewRaw as RawComponentSchema },
+  { uid: 'blocks.resolution-steps', schema: resolutionStepsRaw as RawComponentSchema },
+  { uid: 'blocks.info-blocks', schema: infoBlocksRaw as RawComponentSchema },
+  { uid: 'complaint.info-block', schema: infoBlockRaw as RawComponentSchema },
+  { uid: 'complaint.resolution-step', schema: resolutionStepRaw as RawComponentSchema },
+  { uid: 'shared.config-entry', schema: configEntryRaw as RawComponentSchema },
+  { uid: 'shared.tab-item', schema: tabItemRaw as RawComponentSchema },
+  { uid: 'subscription.plan-feature', schema: planFeatureRaw as RawComponentSchema },
+  { uid: 'subscription.visit-service', schema: visitServiceRaw as RawComponentSchema },
+  { uid: 'web.section-style', schema: webSectionStyleRaw as RawComponentSchema },
+  { uid: 'web.text-style', schema: webTextStyleRaw as RawComponentSchema },
+  { uid: 'web.button', schema: webButtonRaw as RawComponentSchema },
+  { uid: 'web.link', schema: webLinkRaw as RawComponentSchema },
+  { uid: 'web.drawer-style', schema: webDrawerStyleRaw as RawComponentSchema },
+  { uid: 'web.service-card', schema: webServiceCardRaw as RawComponentSchema },
+  { uid: 'web.feature-card', schema: webFeatureCardRaw as RawComponentSchema },
+  { uid: 'web.city', schema: webCityRaw as RawComponentSchema },
+  { uid: 'web.header', schema: webHeaderRaw as RawComponentSchema },
+  { uid: 'web.hero', schema: webHeroRaw as RawComponentSchema },
+  { uid: 'web.services-grid', schema: webServicesGridRaw as RawComponentSchema },
+  { uid: 'web.feature-grid', schema: webFeatureGridRaw as RawComponentSchema },
+  { uid: 'web.app-promo', schema: webAppPromoRaw as RawComponentSchema },
+  { uid: 'web.support', schema: webSupportRaw as RawComponentSchema },
+  { uid: 'web.counter', schema: webCounterRaw as RawComponentSchema },
+  { uid: 'web.help-cta', schema: webHelpCtaRaw as RawComponentSchema },
+  { uid: 'web.footer', schema: webFooterRaw as RawComponentSchema },
+  { uid: 'web.login', schema: webLoginRaw as RawComponentSchema },
+  { uid: 'web.dashboard-tile', schema: webDashboardTileRaw as RawComponentSchema },
+  { uid: 'web.dial-item', schema: webDialItemRaw as RawComponentSchema },
+  { uid: 'web.plan-preview', schema: webPlanPreviewRaw as RawComponentSchema },
+  { uid: 'web.dashboard-style', schema: webDashboardStyleRaw as RawComponentSchema },
+  { uid: 'web.dashboard', schema: webDashboardRaw as RawComponentSchema },
+  { uid: 'web.list-item', schema: webListItemRaw as RawComponentSchema },
+  { uid: 'web.sidebar-item', schema: webSidebarItemRaw as RawComponentSchema },
+  { uid: 'web.app-sidebar', schema: webAppSidebarRaw as RawComponentSchema },
+  { uid: 'web.plans', schema: webPlansRaw as RawComponentSchema },
+  { uid: 'web.wallet-amount', schema: webWalletAmountRaw as RawComponentSchema },
+  { uid: 'web.add-money', schema: webAddMoneyRaw as RawComponentSchema },
+  { uid: 'web.order-history', schema: webOrderHistoryRaw as RawComponentSchema },
+  { uid: 'web.booking-appliance', schema: webBookingApplianceRaw as RawComponentSchema },
+  { uid: 'web.ticket', schema: webTicketRaw as RawComponentSchema },
+  { uid: 'web.resolution-step', schema: webResolutionStepRaw as RawComponentSchema },
+  { uid: 'web.resolution-steps', schema: webResolutionStepsRaw as RawComponentSchema },
+  { uid: 'web.info-block', schema: webInfoBlockRaw as RawComponentSchema },
+  { uid: 'web.info-blocks', schema: webInfoBlocksRaw as RawComponentSchema },
+  { uid: 'web.rate-card', schema: webRateCardRaw as RawComponentSchema },
 ];

@@ -1,5 +1,11 @@
 # Watchtower CMS Migration — Progress Tracker
 
+> **2026-11-01 — `/admin` removed; the CMS now lives at `/cms`.** Everything below that says
+> `/admin/...` is historical. The content manager and media library moved to `/cms/content-manager`
+> and `/cms/media-library` behind the root (phone+OTP+passkey) session; operators moved to
+> `/operators`; the email/password login, `/admin/users`, `ADMIN_JWT_SECRET` and the IP-allowlist
+> `middleware.ts` are gone. See the "Phase 6" section at the end.
+
 Rebuilding `console` (Strapi 5) as custom Next.js code in `watchtower`, deployable on Vercel,
 reading the same Postgres data (`strapi_console`, migrating to Neon), same Strapi-style admin UI,
 same REST/GraphQL API contract for existing consumers (nexus, serwise, serwise-website).
@@ -405,5 +411,62 @@ Styling was confirmed a non-issue (same design-system version) from the start.
   - [x] Edit-asset `Modal` (rename, alternative text, caption, single-asset delete) replacing the
         previous click-nothing static grid.
 
+## Phase 6 — CMS moved to `/cms`, `/admin` removed (2026-11-01)
+
+Decided instead of deploying a separate `console` app: the CMS is part of watchtower.
+- [x] `/cms` is the Strapi-style CMS: `content-manager`, `media-library` (moved from `/admin`) plus a
+      new **read-only** `content-type-builder`. Read-only on purpose — content types are real tables +
+      Prisma models, so new fields need a schema JSON, a SQL migration, `yarn prisma:pull` and a deploy.
+- [x] `/cms` lists only presentation content (`src/app/cms/content-types.ts`): page, bottom-tab,
+      complaint-page, global-config, web-page, login, welcome-bonus. Plans/addons/parts/device types stay
+      on `/pricing` and `/device-types` (relation pickers can still select device types, just not link to them).
+- [x] Guard: `src/app/cms/layout.tsx` (root session) + `requireRootSession()` in every server action.
+- [x] Removed the old custom `/cms` forms (`CmsView`, `WebContentTabs`, `ui`, `actions`). Website
+      revalidation still fires — it lives in `entity-repository.ts`, not in those forms.
+- [x] `/admin/operators` → `/operators` (RootSidebar "Data" group). Add-operator now takes name + email +
+      phone and creates the `admin_users` row itself, since `/admin/users` is gone.
+- [x] Deleted `/admin` (login, users, layout), `admin-session.ts`, `admin-users.ts`, `middleware.ts`,
+      `scripts/verify-admin-auth.ts`; `ADMIN_JWT_SECRET` / `WATCHTOWER_ADMIN_ALLOWED_IPS` can be removed
+      from both Vercel projects.
+
+## Phase 7 — Editable Content-Type Builder + Strapi-style media (2026-11-01)
+
+- [x] **Schemas live in the DB now** (`watchtower_cms_content_types` / `_components` / `_relation_tables` /
+      `_schema_state`, migration `prisma/manual-migrations/0004_cms_schema_registry.sql`). `content-schemas/`
+      is only the seed (auto-copied on first load) and the fallback when the tables don't exist. Columns are
+      `JSON`, not `JSONB` — JSONB re-sorts keys and attribute order is the editor's field order.
+      `registry.ts` caches per instance and re-checks the version every 2s; entry points call
+      `ensureSchemaRegistry()` (entity-repository's exports do it themselves).
+- [x] **Data layer off generated Prisma models**: `entity-repository.ts`'s `model()` is now `sql-model.ts`
+      (raw SQL through Prisma's raw API, same result types), so builder-created tables/columns work without
+      `prisma generate`.
+- [x] **Builder edits** (`/cms/content-type-builder`): create collection/single types and components
+      (“blocks”), add/edit/delete fields (text, number, date, boolean, JSON, enumeration, media, relation,
+      UID, color, component, dynamic zone), delete types/components. Save → `ddl.ts` plans the SQL (Strapi
+      table conventions) → confirmation dialog listing every change, data-loss in red → `apply.ts` runs DDL +
+      registry update + version bump in one transaction. Field type/target can't be changed after save
+      (delete + re-add). Core types (plans/addons/parts/device types) and components they use are excluded.
+      Relations created by the builder are one-way.
+- [x] **Dev only**: editing needs `CMS_SCHEMA_EDITING=true` (local + watchtower-dev). Prod is view-only and
+      gets changes with `SOURCE_DATABASE_URL=<dev> TARGET_DATABASE_URL=<prod> yarn cms:sync-schema` (dry run;
+      `--apply`, plus `--allow-data-loss` for drops). The sync diffs against what the target DB actually has, so
+      it also creates tables that were only ever made on dev (e.g. 0003's web_pages/logins if missing on prod).
+- [x] GraphQL schema rebuilds on version change; REST resolves types after refreshing the registry.
+- [x] Media: Strapi `AssetCard` grid (checkerboard, contain-fit, type badge, dimensions), carousel media field
+      with picker dialog (search, upload, multi-select), list rows prefetch so whole-row click opens fast.
+- [x] Verified on watchtower-dev with a throwaway type + component through the real UI (create → entry with
+      component/dynamic zone/relation → publish → drop field → delete both); dev left clean.
+
+- [x] **Complaint Page + Login moved into pages** (2026-11-01): new blocks `blocks.resolution-steps`,
+      `blocks.info-blocks` (Page) and `web.login` (Web Page); content copied by
+      `scripts/cms-move-singletons.ts` into Page `complaint-detail` and Web Page `login` (published).
+      serwise `fetchComplaintPage` and website `getLoginContent` read the pages, falling back to the old single
+      types, which are hidden from /cms (`LEGACY_CONTENT_TYPE_UIDS`) but still served for installed app builds.
+      Prod order: `yarn cms:sync-schema --apply` → move script with prod `DATABASE_URL` `--apply` → deploy apps.
+
 ---
-*Last updated: Phase 5 complete except the disclosed drag-and-drop scope cut in the edit view.*
+- [x] **Device Types → CMS, single sidebar** (2026-11-01): Device Types is now ordinary CMS content (Content
+      Manager + builder); the custom `/device-types` screen is deleted. Only plans/addons/service parts remain core
+      (`CORE_CONTENT_TYPE_UIDS`) on `/pricing`. RootSidebar's Data/Content toggle is gone — one list.
+
+*Last updated: Phase 7 — Device Types in CMS, single watchtower sidebar.*

@@ -1,10 +1,13 @@
 'use server';
 
+import { requireRootSession } from '@/lib/auth/require-root-session';
+
 import { revalidatePath, updateTag } from 'next/cache';
 import { createCustomer, type NexusCustomerDetail, type CreateCustomerInput } from '@/lib/nexus/customers';
 import { logAudit } from '@/lib/audit/log';
 
 export async function createCustomerAction(input: CreateCustomerInput): Promise<NexusCustomerDetail> {
+  await requireRootSession();
   const customer = await createCustomer(input);
   revalidatePath('/customers');
   updateTag('customers');

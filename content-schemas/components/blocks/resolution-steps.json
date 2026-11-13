@@ -1,0 +1,16 @@
+{
+  "collectionName": "components_blocks_resolution_steps",
+  "info": {
+    "displayName": "Resolution Steps",
+    "icon": "check-circle",
+    "description": "“How your issue will be resolved” steps on the complaint detail screen"
+  },
+  "options": {},
+  "attributes": {
+    "steps": {
+      "type": "component",
+      "repeatable": true,
+      "component": "complaint.resolution-step"
+    }
+  }
+}

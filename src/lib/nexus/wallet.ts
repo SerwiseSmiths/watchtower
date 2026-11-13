@@ -36,11 +36,14 @@ export async function fetchProviderWalletHistory(userId: string, page = 1, limit
 
 /** Records a manual/offline payout to a provider — debits their wallet directly (ADMIN-only
  *  on nexus's side). There is no bank/gateway automation; this only reflects that the admin
- *  already paid the provider outside the app. */
+ *  already paid the provider outside the app. `idempotencyKey` makes a retried request
+ *  return the original debit instead of debiting again. */
 export async function payoutProviderWallet(
   userId: string,
   amount: number,
+  idempotencyKey: string,
   note?: string,
+  recordedBy?: string,
 ): Promise<{ wallet: { id: string; balance: number }; ledger: NexusWalletLedgerEntry }> {
   const res = await nexusFetch('/wallet/debit', {
     method: 'POST',
@@ -49,7 +52,8 @@ export async function payoutProviderWallet(
       userId,
       amount,
       source: 'WITHDRAWAL',
-      meta: { recordedVia: 'watchtower', ...(note && { note }) },
+      idempotencyKey,
+      meta: { recordedVia: 'watchtower', ...(recordedBy && { recordedBy }), ...(note && { note }) },
     }),
   });
   const body = await res.json();

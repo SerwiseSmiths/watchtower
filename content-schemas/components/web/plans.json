@@ -1,0 +1,124 @@
+{
+  "collectionName": "components_web_plans",
+  "info": {
+    "displayName": "AMC Plans",
+    "icon": "shield",
+    "description": "Website AMC Plans page copy and colours. The plan cards themselves come from Subscription Plans (same as the app). {plan} is filled in with the plan name. Lives on the “plans” web page."
+  },
+  "options": {},
+  "attributes": {
+    "annualLabel": {
+      "type": "string"
+    },
+    "monthlyLabel": {
+      "type": "string"
+    },
+    "includesTitle": {
+      "type": "string"
+    },
+    "includes": {
+      "type": "component",
+      "repeatable": true,
+      "component": "web.list-item"
+    },
+    "cashReward": {
+      "type": "string"
+    },
+    "cardLogo": {
+      "type": "media",
+      "multiple": false,
+      "required": false,
+      "allowedTypes": [
+        "images"
+      ]
+    },
+    "perMonthLabel": {
+      "type": "string"
+    },
+    "perYearLabel": {
+      "type": "string"
+    },
+    "perMonthSuffix": {
+      "type": "string"
+    },
+    "monthlyUnavailableText": {
+      "type": "string"
+    },
+    "includedLabel": {
+      "type": "string"
+    },
+    "subscribeLabel": {
+      "type": "string"
+    },
+    "dialogTitle": {
+      "type": "string"
+    },
+    "qtyLabel": {
+      "type": "string"
+    },
+    "subscribeHandoffTitle": {
+      "type": "string"
+    },
+    "defaultFeatures": {
+      "type": "component",
+      "repeatable": true,
+      "component": "subscription.plan-feature"
+    },
+    "fallbackPlanColor": {
+      "type": "customField",
+      "customField": "plugin::color-picker.color",
+      "options": {
+        "format": "hex"
+      }
+    },
+    "toggleBackground": {
+      "type": "customField",
+      "customField": "plugin::color-picker.color",
+      "options": {
+        "format": "hex"
+      }
+    },
+    "cardBackground": {
+      "type": "customField",
+      "customField": "plugin::color-picker.color",
+      "options": {
+        "format": "hex"
+      }
+    },
+    "textColor": {
+      "type": "customField",
+      "customField": "plugin::color-picker.color",
+      "options": {
+        "format": "hex"
+      }
+    },
+    "mutedColor": {
+      "type": "customField",
+      "customField": "plugin::color-picker.color",
+      "options": {
+        "format": "hex"
+      }
+    },
+    "tickColor": {
+      "type": "customField",
+      "customField": "plugin::color-picker.color",
+      "options": {
+        "format": "hex"
+      }
+    },
+    "rewardColor": {
+      "type": "customField",
+      "customField": "plugin::color-picker.color",
+      "options": {
+        "format": "hex"
+      }
+    },
+    "dialogTickColor": {
+      "type": "customField",
+      "customField": "plugin::color-picker.color",
+      "options": {
+        "format": "hex"
+      }
+    }
+  }
+}

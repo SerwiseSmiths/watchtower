@@ -1,0 +1,71 @@
+{
+  "collectionName": "components_web_app_sidebars",
+  "info": {
+    "displayName": "App Sidebar",
+    "icon": "layout",
+    "description": "Sidebar of the signed-in web pages (logo, menu, app QR) and the “continue in the app” dialog it opens. The QR and app link come from Global Config → APP_DOWNLOAD_LINK."
+  },
+  "options": {},
+  "attributes": {
+    "logo": {
+      "type": "media",
+      "multiple": false,
+      "required": false,
+      "allowedTypes": [
+        "images"
+      ]
+    },
+    "logoHref": {
+      "type": "string"
+    },
+    "navItems": {
+      "type": "component",
+      "repeatable": true,
+      "component": "web.sidebar-item"
+    },
+    "qrLabel": {
+      "type": "string"
+    },
+    "handoffText": {
+      "type": "text"
+    },
+    "handoffButtonLabel": {
+      "type": "string"
+    },
+    "sidebarBackground": {
+      "type": "customField",
+      "customField": "plugin::color-picker.color",
+      "options": {
+        "format": "hex"
+      }
+    },
+    "contentBackground": {
+      "type": "customField",
+      "customField": "plugin::color-picker.color",
+      "options": {
+        "format": "hex"
+      }
+    },
+    "activeBackground": {
+      "type": "customField",
+      "customField": "plugin::color-picker.color",
+      "options": {
+        "format": "hex"
+      }
+    },
+    "borderColor": {
+      "type": "customField",
+      "customField": "plugin::color-picker.color",
+      "options": {
+        "format": "hex"
+      }
+    },
+    "textColor": {
+      "type": "customField",
+      "customField": "plugin::color-picker.color",
+      "options": {
+        "format": "hex"
+      }
+    }
+  }
+}

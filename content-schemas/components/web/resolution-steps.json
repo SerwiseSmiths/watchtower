@@ -1,0 +1,26 @@
+{
+  "collectionName": "components_web_resolution_steps_blocks",
+  "info": {
+    "displayName": "Resolution Steps",
+    "icon": "list",
+    "description": "Website ticket page — “How your issue will be resolved” with a progress track"
+  },
+  "options": {},
+  "attributes": {
+    "title": {
+      "type": "string"
+    },
+    "steps": {
+      "type": "component",
+      "repeatable": true,
+      "component": "web.resolution-step"
+    },
+    "doneColor": {
+      "type": "customField",
+      "customField": "plugin::color-picker.color",
+      "options": {
+        "format": "hex"
+      }
+    }
+  }
+}

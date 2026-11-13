@@ -30,7 +30,9 @@
         "blocks.services",
         "blocks.whats-new",
         "blocks.invite-earn",
-        "blocks.transactions"
+        "blocks.transactions",
+        "blocks.resolution-steps",
+        "blocks.info-blocks"
       ],
       "required": false
     }

@@ -9,7 +9,8 @@
     "lint": "eslint",
     "postinstall": "prisma generate",
     "prisma:pull": "prisma db pull && node scripts/fix-prisma-schema.js && prisma generate",
-    "prisma:generate": "prisma generate"
+    "prisma:generate": "prisma generate",
+    "cms:sync-schema": "tsx scripts/cms-sync-schema.ts"
   },
   "dependencies": {
     "@neondatabase/serverless": "^1.1.0",

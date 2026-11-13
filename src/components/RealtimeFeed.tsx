@@ -16,7 +16,7 @@ const MAX_TOASTS = 4;
 // Events tend to arrive in bursts (assign → stage change → updated), so coalesce them into
 // one server refresh instead of re-rendering the page once per event.
 const REFRESH_DEBOUNCE_MS = 500;
-// Pages that render nexus data an event can change. Anywhere else (CMS, pricing, /admin, …)
+// Pages that render nexus data an event can change. Anywhere else (/cms, pricing, …)
 // an event only drops cache tags — re-rendering those pages would be pure wasted load.
 const LIVE_PAGES = ['/tickets', '/customers', '/providers'];
 

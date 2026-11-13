@@ -1,0 +1,50 @@
+{
+  "collectionName": "components_web_rate_cards",
+  "info": {
+    "displayName": "Rate Card",
+    "icon": "priceTag",
+    "description": "Website Rate Card page — headings and colours. The rows themselves are the active Service Parts (name + face value), grouped by device type."
+  },
+  "options": {},
+  "attributes": {
+    "title": {
+      "type": "string"
+    },
+    "goBackLabel": {
+      "type": "string"
+    },
+    "descriptionHeader": {
+      "type": "string"
+    },
+    "chargeHeader": {
+      "type": "string"
+    },
+    "otherGroupLabel": {
+      "type": "string"
+    },
+    "emptyText": {
+      "type": "string"
+    },
+    "pageBackground": {
+      "type": "customField",
+      "customField": "plugin::color-picker.color",
+      "options": {
+        "format": "hex"
+      }
+    },
+    "tableBorderColor": {
+      "type": "customField",
+      "customField": "plugin::color-picker.color",
+      "options": {
+        "format": "hex"
+      }
+    },
+    "textColor": {
+      "type": "customField",
+      "customField": "plugin::color-picker.color",
+      "options": {
+        "format": "hex"
+      }
+    }
+  }
+}

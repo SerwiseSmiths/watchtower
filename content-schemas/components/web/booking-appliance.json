@@ -1,0 +1,39 @@
+{
+  "collectionName": "components_web_booking_appliances",
+  "info": {
+    "displayName": "Booking Appliance",
+    "description": "One appliance customers can pick in the Magic Booking popup. The device key must be one nexus knows."
+  },
+  "options": {},
+  "attributes": {
+    "deviceKey": {
+      "type": "enumeration",
+      "enum": [
+        "air_conditioner",
+        "fridge",
+        "washing_machine",
+        "master_purifier",
+        "geyser"
+      ],
+      "required": true
+    },
+    "label": {
+      "type": "string",
+      "required": true
+    },
+    "image": {
+      "type": "media",
+      "multiple": false,
+      "required": false,
+      "allowedTypes": [
+        "images"
+      ]
+    },
+    "imageWidth": {
+      "type": "integer"
+    },
+    "imageHeight": {
+      "type": "integer"
+    }
+  }
+}

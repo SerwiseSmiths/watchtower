@@ -1,0 +1,243 @@
+{
+  "kind": "singleType",
+  "collectionName": "magic_flows",
+  "info": {
+    "singularName": "magic-flow",
+    "pluralName": "magic-flows",
+    "displayName": "Magic Flow",
+    "description": "Website Magic Booking popup (appliances → address → confirmation → UPI payment): every label, appliance and colour. {count} and {amount} are filled in live."
+  },
+  "options": {
+    "draftAndPublish": false
+  },
+  "pluginOptions": {},
+  "attributes": {
+    "serviceType": {
+      "type": "string"
+    },
+    "applianceTitle": {
+      "type": "string"
+    },
+    "appliances": {
+      "type": "component",
+      "repeatable": true,
+      "component": "web.booking-appliance"
+    },
+    "selectedLabel": {
+      "type": "string"
+    },
+    "notSelectedLabel": {
+      "type": "string"
+    },
+    "selectLabel": {
+      "type": "string"
+    },
+    "addLabel": {
+      "type": "string"
+    },
+    "multipleHint": {
+      "type": "string"
+    },
+    "confirmLabel": {
+      "type": "string"
+    },
+    "addressTitle": {
+      "type": "string"
+    },
+    "noAddressText": {
+      "type": "text"
+    },
+    "addressesFoundText": {
+      "type": "string"
+    },
+    "searchPlaceholder": {
+      "type": "string"
+    },
+    "homeLabel": {
+      "type": "string"
+    },
+    "officeLabel": {
+      "type": "string"
+    },
+    "otherLabel": {
+      "type": "string"
+    },
+    "housePlaceholder": {
+      "type": "string"
+    },
+    "streetPlaceholder": {
+      "type": "string"
+    },
+    "autofillPlaceholder": {
+      "type": "string"
+    },
+    "directionPlaceholder": {
+      "type": "string"
+    },
+    "addAddressLabel": {
+      "type": "string"
+    },
+    "addAnotherLabel": {
+      "type": "string"
+    },
+    "addressContinueLabel": {
+      "type": "string"
+    },
+    "confirmationTitle": {
+      "type": "string"
+    },
+    "applianceDetailsLabel": {
+      "type": "string"
+    },
+    "addressDetailsLabel": {
+      "type": "string"
+    },
+    "changeLabel": {
+      "type": "string"
+    },
+    "visitChargeText": {
+      "type": "string"
+    },
+    "visitChargeNote": {
+      "type": "text"
+    },
+    "confirmContinueLabel": {
+      "type": "string"
+    },
+    "upiOfferText": {
+      "type": "string"
+    },
+    "upiOfferIcon": {
+      "type": "media",
+      "multiple": false,
+      "required": false,
+      "allowedTypes": [
+        "images"
+      ]
+    },
+    "paymentTitle": {
+      "type": "string"
+    },
+    "scanToPayLabel": {
+      "type": "string"
+    },
+    "paymentNote": {
+      "type": "text"
+    },
+    "paymentContinueLabel": {
+      "type": "string"
+    },
+    "waitingText": {
+      "type": "string"
+    },
+    "expiredText": {
+      "type": "string"
+    },
+    "retryLabel": {
+      "type": "string"
+    },
+    "successTitle": {
+      "type": "string"
+    },
+    "successText": {
+      "type": "text"
+    },
+    "doneLabel": {
+      "type": "string"
+    },
+    "errorText": {
+      "type": "string"
+    },
+    "background": {
+      "type": "customField",
+      "customField": "plugin::color-picker.color",
+      "options": {
+        "format": "hex"
+      }
+    },
+    "borderColor": {
+      "type": "customField",
+      "customField": "plugin::color-picker.color",
+      "options": {
+        "format": "hex"
+      }
+    },
+    "titleColor": {
+      "type": "customField",
+      "customField": "plugin::color-picker.color",
+      "options": {
+        "format": "hex"
+      }
+    },
+    "textColor": {
+      "type": "customField",
+      "customField": "plugin::color-picker.color",
+      "options": {
+        "format": "hex"
+      }
+    },
+    "mutedColor": {
+      "type": "customField",
+      "customField": "plugin::color-picker.color",
+      "options": {
+        "format": "hex"
+      }
+    },
+    "cardBackground": {
+      "type": "customField",
+      "customField": "plugin::color-picker.color",
+      "options": {
+        "format": "hex"
+      }
+    },
+    "selectedBackground": {
+      "type": "customField",
+      "customField": "plugin::color-picker.color",
+      "options": {
+        "format": "hex"
+      }
+    },
+    "selectedTextColor": {
+      "type": "customField",
+      "customField": "plugin::color-picker.color",
+      "options": {
+        "format": "hex"
+      }
+    },
+    "chipBackground": {
+      "type": "customField",
+      "customField": "plugin::color-picker.color",
+      "options": {
+        "format": "hex"
+      }
+    },
+    "chipTextColor": {
+      "type": "customField",
+      "customField": "plugin::color-picker.color",
+      "options": {
+        "format": "hex"
+      }
+    },
+    "buttonBackground": {
+      "type": "customField",
+      "customField": "plugin::color-picker.color",
+      "options": {
+        "format": "hex"
+      }
+    },
+    "buttonTextColor": {
+      "type": "customField",
+      "customField": "plugin::color-picker.color",
+      "options": {
+        "format": "hex"
+      }
+    },
+    "offerColor": {
+      "type": "customField",
+      "customField": "plugin::color-picker.color",
+      "options": {
+        "format": "hex"
+      }
+    }
+  }
+}

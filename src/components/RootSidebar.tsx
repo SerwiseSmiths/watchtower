@@ -1,6 +1,6 @@
 'use client';
 
-import { Suspense, useState } from 'react';
+import { Suspense } from 'react';
 import NextLink from 'next/link';
 import { usePathname, useSearchParams } from 'next/navigation';
 import type { CSSProperties } from 'react';
@@ -17,22 +17,16 @@ interface NavItem {
   children?: SubNavItem[];
 }
 
-type Group = 'data' | 'content';
-
-// Add new root-session pages here as they're built — this is the single place that
-// drives the left nav. Split into two groups the sidebar toggles between; Audit Log
-// intentionally appears in both since it spans every module.
-const DATA_ITEMS: NavItem[] = [
+// Add new root-session pages here as they're built — this is the single place that drives the left
+// nav. Presentation content (incl. Device Types) is edited in the CMS; Pricing stays here because it's
+// core service data with its own business rules.
+const NAV_ITEMS: NavItem[] = [
   { href: '/tickets', label: 'Tickets' },
   { href: '/providers', label: 'Providers' },
   { href: '/provider-tiers', label: 'Provider Tiers' },
   { href: '/device-type-groups', label: 'Device Type Groups' },
   { href: '/customers', label: 'Customers' },
-  { href: '/audit-log', label: 'Audit Log' },
-];
-
-const CONTENT_ITEMS: NavItem[] = [
-  { href: '/device-types', label: 'Device Types' },
+  { href: '/operators', label: 'Operators' },
   {
     href: '/pricing',
     label: 'Pricing',
@@ -42,26 +36,10 @@ const CONTENT_ITEMS: NavItem[] = [
       { href: '/pricing?tab=parts', label: 'Service Parts', tab: 'parts' },
     ],
   },
-  {
-    href: '/cms',
-    label: 'CMS',
-    children: [
-      { href: '/cms?tab=bottom-tab', label: 'Bottom Tab', tab: 'bottom-tab' },
-      { href: '/cms?tab=complaint-page', label: 'Complaint Page', tab: 'complaint-page' },
-      { href: '/cms?tab=global-config', label: 'Global Config', tab: 'global-config' },
-      { href: '/cms?tab=welcome-bonus', label: 'Welcome Bonus', tab: 'welcome-bonus' },
-      { href: '/cms?tab=pages', label: 'Pages', tab: 'pages' },
-      { href: '/cms?tab=web-pages', label: 'Web Pages', tab: 'web-pages' },
-      { href: '/cms?tab=login', label: 'Website Login', tab: 'login' },
-    ],
-  },
+  // Opens the full-screen Strapi-style CMS, which has its own navigation (and a link back here).
+  { href: '/cms', label: 'CMS' },
   { href: '/audit-log', label: 'Audit Log' },
 ];
-
-function groupForPathname(pathname: string | null): Group {
-  if (DATA_ITEMS.some((item) => pathname?.startsWith(item.href))) return 'data';
-  return 'content';
-}
 
 // useSearchParams() forces this subtree to opt out of static rendering, which Next.js
 // requires to happen inside a Suspense boundary (build fails otherwise — every page
@@ -84,7 +62,6 @@ export default function RootSidebar() {
 function RootSidebarContent() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  const [group, setGroup] = useState<Group>(() => groupForPathname(pathname));
 
   const itemStyle: CSSProperties = {
     display: 'flex',
@@ -105,50 +82,12 @@ function RootSidebarContent() {
     textDecoration: 'none',
   };
 
-  const items = group === 'data' ? DATA_ITEMS : CONTENT_ITEMS;
   const activeTab = searchParams?.get('tab');
 
   return (
     <aside style={{ width: 214, background: '#FFFFFF', flexShrink: 0, paddingTop: 24 }}>
-      <div className="d-flex" style={{ margin: '0 16px 16px', background: '#F2F2F2', borderRadius: 6, padding: 3, gap: 2 }}>
-        <button
-          type="button"
-          onClick={() => setGroup('data')}
-          style={{
-            flex: 1,
-            background: group === 'data' ? '#181818' : 'transparent',
-            color: group === 'data' ? '#FFFFFF' : '#454545',
-            border: 'none',
-            borderRadius: 5,
-            padding: '7px 0',
-            fontSize: 11,
-            fontWeight: 700,
-            letterSpacing: '-0.03em',
-          }}
-        >
-          Data
-        </button>
-        <button
-          type="button"
-          onClick={() => setGroup('content')}
-          style={{
-            flex: 1,
-            background: group === 'content' ? '#181818' : 'transparent',
-            color: group === 'content' ? '#FFFFFF' : '#454545',
-            border: 'none',
-            borderRadius: 5,
-            padding: '7px 0',
-            fontSize: 11,
-            fontWeight: 700,
-            letterSpacing: '-0.03em',
-          }}
-        >
-          Content
-        </button>
-      </div>
-
       <nav className="d-flex flex-column">
-        {items.map((item) => {
+        {NAV_ITEMS.map((item) => {
           const active = pathname?.startsWith(item.href) && !item.children;
           const parentActive = pathname?.startsWith(item.href);
           return (
